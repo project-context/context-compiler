@@ -1,5 +1,7 @@
 # Context Compiler
 
+[中文](./README.zh.md)
+
 > Compile scattered software project knowledge into structured, traceable, role-aware context for AI agents.
 
 **Context Compiler** is an experimental Context Engineering project for AI-assisted software development.
