@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+import { readdir, stat } from 'node:fs/promises'
+import { join, relative, resolve } from 'node:path'
 import SwaggerParser from '@apidevtools/swagger-parser'
 import type { ContextNode, ParserPlugin, SourceConfig, SourceRef } from '@context-compiler/core'
 
@@ -20,41 +21,63 @@ export function createOpenApiParserPlugin(): ParserPlugin {
     name: 'parser-openapi',
     sourceTypes: ['openapi'],
     async parse(source: SourceConfig, context): Promise<{ nodes: ContextNode[] }> {
-      const filePath = resolve(context.rootDir, source.path)
-      const document = (await SwaggerParser.parse(filePath)) as OpenApiDocument
-      const sourceRef: SourceRef = {
-        uri: `file://${source.path}`,
-        type: source.type,
-        name: source.name
-      }
       const nodes: ContextNode[] = []
+      const filePaths = await findOpenApiFiles(resolve(context.rootDir, source.path))
 
-      for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
-        for (const [method, operation] of Object.entries(pathItem ?? {})) {
-          if (!HTTP_METHODS.has(method.toLowerCase())) {
-            continue
-          }
-          const openApiOperation = operation as OpenApiOperation
-          const normalizedMethod = method.toUpperCase()
-          nodes.push({
-            id: `API-${normalizedMethod}-${slugPath(path)}`,
-            type: 'api_contract',
-            title: `${normalizedMethod} ${path}`,
-            content: openApiOperation.description ?? openApiOperation.summary,
-            source: sourceRef,
-            tags: openApiOperation.tags ?? [],
-            metadata: {
-              method: normalizedMethod,
-              path,
-              operationId: openApiOperation.operationId
+      for (const filePath of filePaths) {
+        const document = (await SwaggerParser.parse(filePath)) as OpenApiDocument
+        const sourceRef: SourceRef = {
+          uri: `file://${relative(context.rootDir, filePath).split('\\').join('/')}`,
+          type: source.type,
+          name: source.name
+        }
+
+        for (const [path, pathItem] of Object.entries(document.paths ?? {})) {
+          for (const [method, operation] of Object.entries(pathItem ?? {})) {
+            if (!HTTP_METHODS.has(method.toLowerCase())) {
+              continue
             }
-          })
+            const openApiOperation = operation as OpenApiOperation
+            const normalizedMethod = method.toUpperCase()
+            nodes.push({
+              id: `API-${normalizedMethod}-${slugPath(path)}`,
+              type: 'api_contract',
+              title: `${normalizedMethod} ${path}`,
+              content: openApiOperation.description ?? openApiOperation.summary,
+              source: sourceRef,
+              tags: openApiOperation.tags ?? [],
+              metadata: {
+                method: normalizedMethod,
+                path,
+                operationId: openApiOperation.operationId
+              }
+            })
+          }
         }
       }
 
       return { nodes }
     }
   }
+}
+
+async function findOpenApiFiles(path: string): Promise<string[]> {
+  const pathStat = await stat(path)
+  if (pathStat.isFile()) {
+    return [path]
+  }
+
+  const entries = await readdir(path, { withFileTypes: true })
+  const files = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = join(path, entry.name)
+      if (entry.isDirectory()) {
+        return findOpenApiFiles(entryPath)
+      }
+      return entry.isFile() && /^(openapi|swagger)\.(ya?ml|json)$/i.test(entry.name) ? [entryPath] : []
+    })
+  )
+  return files.flat().sort()
 }
 
 function slugPath(path: string): string {
@@ -64,4 +87,3 @@ function slugPath(path: string): string {
     .replace(/[^A-Za-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
 }
-

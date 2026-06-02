@@ -28,6 +28,14 @@ export const ContextProjectConfigSchema = z.object({
   }),
   sources: z.array(SourceConfigSchema).default([]),
   roles: z.record(RoleConfigSchema).default({}),
+  codeIndex: z
+    .object({
+      languages: z.union([z.literal('auto'), z.array(z.string())]).default('auto'),
+      providers: z.array(z.string()).default(['tree-sitter', 'ctags']),
+      fallbackProvider: z.string().default('ctags'),
+      deepAnalysisProviders: z.array(z.string()).default([])
+    })
+    .optional(),
   policies: z.record(z.unknown()).optional(),
   emitters: z.array(z.record(z.unknown())).optional()
 })

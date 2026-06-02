@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import {
   DEFAULT_ROLES,
   renderRoleView,
+  writeCodeIndexFiles,
   writeGraphFiles,
+  writeInventoryFile,
   type ContextGraph,
   type EmitterPlugin
 } from '@context-compiler/core'
@@ -17,6 +19,12 @@ export function createFileEmitterPlugin(): EmitterPlugin {
       }
 
       await writeGraphFiles(graph, context.outputDir)
+      if (context.inventory) {
+        await writeInventoryFile(context.inventory, context.outputDir)
+      }
+      if (context.codeIndex) {
+        await writeCodeIndexFiles(context.codeIndex, context.outputDir)
+      }
       await writeRoleViews(graph, context.outputDir, context.config)
       await writeManifest(graph, context.outputDir, context.config)
     }
@@ -68,7 +76,14 @@ async function writeManifest(
         views,
         graph: {
           nodes: '.context/graph/nodes.jsonl',
-          edges: '.context/graph/edges.jsonl'
+          edges: '.context/graph/edges.jsonl',
+          partitionedNodes: '.context/graph/nodes',
+          partitionedEdges: '.context/graph/edges'
+        },
+        inventory: '.context/inventory.json',
+        indexes: {
+          code: '.context/indexes/code',
+          symbol: '.context/indexes/symbol'
         },
         diagnostics: '.context/graph/diagnostics.jsonl',
         counts: {
@@ -82,4 +97,3 @@ async function writeManifest(
     ) + '\n'
   )
 }
-

@@ -2,6 +2,7 @@ import { ContextEdgeSchema, ContextGraphSchema, ContextNodeSchema } from './sche
 import type { ContextEdge, ContextGraph, ContextNode, Diagnostic } from './schemas.js'
 import type { ContextProjectConfig } from './config.js'
 import type { CompilerContext, EmitterPlugin, LinkerPlugin, ParserPlugin, ValidatorPlugin } from './plugins.js'
+import { discoverProjectInventory } from './inventory.js'
 import { createDefaultLinker } from './linker.js'
 import { createDefaultValidator } from './validator.js'
 import { dedupeEdges, dedupeNodes, resolveOutputDir } from './graph.js'
@@ -27,7 +28,10 @@ export async function compileContextProject(
   const context: CompilerContext = {
     rootDir: options.rootDir,
     outputDir,
-    config
+    config,
+    inventory: shouldDiscoverInventory(config)
+      ? await discoverProjectInventory({ rootDir: options.rootDir, config })
+      : undefined
   }
   const nodes: ContextNode[] = []
   const edges: ContextEdge[] = []
@@ -68,4 +72,8 @@ export async function compileContextProject(
   }
 
   return { graph }
+}
+
+function shouldDiscoverInventory(config: ContextProjectConfig): boolean {
+  return Boolean(config.codeIndex) || config.sources.some((source) => source.type === 'code')
 }

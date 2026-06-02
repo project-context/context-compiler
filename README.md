@@ -23,21 +23,26 @@ pnpm build
 # Create context.config.ts in a project workspace
 pnpm --filter @context-compiler/cli exec context init
 
-# Compile local Markdown, OpenAPI, and TypeScript sources into .context/
+# Discover large-repo inventory and build language-agnostic code indexes
+pnpm --filter @context-compiler/cli exec context inventory
+pnpm --filter @context-compiler/cli exec context index
+
+# Compile local Markdown, OpenAPI, and code sources into .context/
 pnpm --filter @context-compiler/cli exec context compile
 
-# Print diagnostics and role-specific context
+# Query, print diagnostics, and inspect role-specific context
+pnpm --filter @context-compiler/cli exec context query "refund payment"
 pnpm --filter @context-compiler/cli exec context validate
 pnpm --filter @context-compiler/cli exec context view backend
 
-# Generate focused task context for a role
-pnpm --filter @context-compiler/cli exec context task "Support partial refund" --role backend
+# Generate focused task context for a role and module
+pnpm --filter @context-compiler/cli exec context task "Support partial refund" --role backend --module payments
 
 # Explain the provenance and graph relationships of a context node
-pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
+pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001 --expand calls
 ```
 
-The current Local MVP supports Markdown PRD/test-case sources, OpenAPI documents, local TypeScript source symbol extraction, JSONL graph output, Markdown role views, task context generation, and basic diagnostics.
+The current Local MVP supports Markdown PRD/test-case sources, OpenAPI documents, language-agnostic code inventory and symbol indexing, flat and partitioned JSONL graph output, Markdown role views, task context generation, and basic diagnostics.
 
 ---
 

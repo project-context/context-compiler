@@ -11,6 +11,16 @@ export const ContextNodeTypeSchema = z.enum([
   'decision',
   'risk',
   'code_symbol',
+  'repository',
+  'module',
+  'package',
+  'file',
+  'build_target',
+  'dependency',
+  'entry_point',
+  'route',
+  'config_item',
+  'runtime_signal',
   'project',
   'domain',
   'page',
@@ -81,4 +91,3 @@ export type ContextEdge = z.infer<typeof ContextEdgeSchema>
 export type Diagnostic = z.infer<typeof DiagnosticSchema>
 export type DiagnosticSeverity = z.infer<typeof DiagnosticSeveritySchema>
 export type ContextGraph = z.infer<typeof ContextGraphSchema>
-

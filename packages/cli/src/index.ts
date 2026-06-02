@@ -4,12 +4,18 @@ import { join } from 'node:path'
 import { Command } from 'commander'
 import {
   compileContextProject,
+  createCodeIndexParserPlugin,
+  discoverProjectInventory,
   explainTrace,
   generateTaskContext,
+  indexCodeProject,
   loadContextConfig,
+  queryGraph,
   readGraphFiles,
   renderTaskContextMarkdown,
   resolveOutputDir,
+  writeCodeIndexFiles,
+  writeInventoryFile,
   type ContextGraph,
   type ContextProjectConfig
 } from '@context-compiler/core'
@@ -96,6 +102,39 @@ export function createProgram(runtime: CliRuntime): Command {
     })
 
   program
+    .command('inventory')
+    .description('Discover languages, modules, build systems, docs, APIs, and tests.')
+    .action(async () => {
+      const { config } = await loadContextConfig(runtime.cwd)
+      const inventory = await discoverProjectInventory({ rootDir: runtime.cwd, config })
+      await writeInventoryFile(inventory, resolveOutputDir(runtime.cwd))
+      runtime.writeOut(formatInventorySummary(inventory))
+    })
+
+  program
+    .command('index')
+    .description('Build a language-agnostic code index.')
+    .action(async () => {
+      const { config } = await loadContextConfig(runtime.cwd)
+      const inventory = await discoverProjectInventory({ rootDir: runtime.cwd, config })
+      const index = await indexCodeProject({
+        rootDir: runtime.cwd,
+        inventory,
+        providerNames: config.codeIndex?.providers,
+        fallbackProvider: config.codeIndex?.fallbackProvider
+      })
+      const outputDir = resolveOutputDir(runtime.cwd)
+      await writeInventoryFile(inventory, outputDir)
+      await writeCodeIndexFiles(index, outputDir)
+      runtime.writeOut(
+        `Indexed ${index.nodes.filter((node) => node.type === 'code_symbol').length} code symbols with ${index.provider}.\n`
+      )
+      for (const diagnostic of index.diagnostics) {
+        runtime.writeOut(`[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}\n`)
+      }
+    })
+
+  program
     .command('validate')
     .description('Compile and print context diagnostics.')
     .action(async () => {
@@ -123,27 +162,47 @@ export function createProgram(runtime: CliRuntime): Command {
     })
 
   program
+    .command('query')
+    .argument('<text>', 'Text to search in the compiled context graph.')
+    .option('--limit <limit>', 'Maximum number of results.', '20')
+    .description('Query compiled context nodes.')
+    .action(async (text: string, options: { limit: string }) => {
+      const graph = await readGraphFiles(resolveOutputDir(runtime.cwd))
+      const results = queryGraph(graph, text, Number(options.limit))
+      if (results.length === 0) {
+        runtime.writeOut('No matching context nodes found.\n')
+        return
+      }
+      for (const node of results) {
+        runtime.writeOut(`${node.id}: ${node.title}\n`)
+      }
+    })
+
+  program
     .command('explain')
     .argument('<nodeId>', 'Context node ID to explain.')
+    .option('--expand <edgeTypes>', 'Comma-separated edge types to call out for expansion.')
     .description('Explain a context node source and graph relationships.')
-    .action(async (nodeId: string) => {
+    .action(async (nodeId: string, options: { expand?: string }) => {
       const graph = await readGraphFiles(resolveOutputDir(runtime.cwd))
-      runtime.writeOut(formatExplanation(graph, nodeId))
+      runtime.writeOut(formatExplanation(graph, nodeId, options.expand))
     })
 
   program
     .command('task')
     .argument('<task>', 'Task description to focus context around.')
     .requiredOption('--role <role>', 'Role name, such as backend or tester.')
+    .option('--module <module>', 'Limit code context to a module path or module name.')
     .option('--max-tokens <tokens>', 'Approximate maximum context token budget.')
     .description('Generate focused task context from the compiled graph.')
-    .action(async (task: string, options: { role: string; maxTokens?: string }) => {
+    .action(async (task: string, options: { role: string; module?: string; maxTokens?: string }) => {
       const outputDir = resolveOutputDir(runtime.cwd)
       const graph = await readGraphFiles(outputDir)
       const { config } = await loadContextConfig(runtime.cwd)
       const result = generateTaskContext(graph, config, {
         task,
         role: options.role,
+        module: options.module,
         maxTokens: options.maxTokens ? Number(options.maxTokens) : undefined
       })
       const markdown = renderTaskContextMarkdown(result)
@@ -176,6 +235,7 @@ async function compileProject(cwd: string): Promise<ContextGraph> {
   const result = await compileContextProject(config, {
     rootDir: cwd,
     parsers: [
+      createCodeIndexParserPlugin(),
       createMarkdownParserPlugin(),
       createOpenApiParserPlugin(),
       createTypeScriptParserPlugin()
@@ -185,7 +245,7 @@ async function compileProject(cwd: string): Promise<ContextGraph> {
   return result.graph
 }
 
-function formatExplanation(graph: ContextGraph, nodeId: string): string {
+function formatExplanation(graph: ContextGraph, nodeId: string, expand?: string): string {
   const explanation = explainTrace(graph, nodeId)
   const lines = [
     `# ${explanation.node.id}`,
@@ -195,6 +255,10 @@ function formatExplanation(graph: ContextGraph, nodeId: string): string {
     `Source: ${explanation.node.source.uri}`,
     ''
   ]
+
+  if (expand) {
+    lines.push(`Expanded Edge Types: ${expand}`, '')
+  }
 
   if (explanation.relatedEdges.length > 0) {
     lines.push('## Related Edges', '')
@@ -215,6 +279,20 @@ function formatExplanation(graph: ContextGraph, nodeId: string): string {
   return lines.join('\n').trimEnd() + '\n'
 }
 
+function formatInventorySummary(inventory: Awaited<ReturnType<typeof discoverProjectInventory>>): string {
+  const lines = [
+    `Project: ${inventory.project}`,
+    `Languages: ${inventory.languages.map((language) => language.name).join(', ') || 'none'}`,
+    `Modules: ${inventory.modules.length}`,
+    `Build Systems: ${inventory.buildSystems.map((buildSystem) => buildSystem.type).join(', ') || 'none'}`,
+    `Tests: ${inventory.testPaths.length}`,
+    `Docs: ${inventory.docPaths.length}`,
+    `APIs: ${inventory.apiFiles.length}`,
+    ''
+  ]
+  return lines.join('\n')
+}
+
 const INITIAL_CONFIG = `import { defineContextProject } from '@context-compiler/core'
 
 export default defineContextProject({
@@ -227,8 +305,14 @@ export default defineContextProject({
     { type: 'markdown', name: 'product-docs', path: './docs/product' },
     { type: 'markdown', name: 'test-cases', path: './docs/tests' },
     { type: 'openapi', name: 'api-spec', path: './openapi.yaml' },
-    { type: 'git', name: 'source', path: './src' }
+    { type: 'code', name: 'main-repo', path: '.', strategy: 'auto' }
   ],
+  codeIndex: {
+    languages: 'auto',
+    providers: ['scip', 'tree-sitter', 'ctags'],
+    fallbackProvider: 'ctags',
+    deepAnalysisProviders: []
+  },
   roles: {
     backend: { include: ['requirement', 'api_contract', 'code_symbol', 'test_case', 'bug'] },
     reviewer: { include: ['*'], diagnostics: true }

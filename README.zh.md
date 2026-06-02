@@ -21,21 +21,26 @@ pnpm build
 # 在项目工作区创建 context.config.ts
 pnpm --filter @context-compiler/cli exec context init
 
-# 将本地 Markdown、OpenAPI 和 TypeScript 源编译到 .context/
+# 发现大仓库结构，并生成语言无关的代码索引
+pnpm --filter @context-compiler/cli exec context inventory
+pnpm --filter @context-compiler/cli exec context index
+
+# 将本地 Markdown、OpenAPI 和代码源编译到 .context/
 pnpm --filter @context-compiler/cli exec context compile
 
-# 输出诊断结果和按角色组织的上下文
+# 查询、输出诊断结果和按角色组织的上下文
+pnpm --filter @context-compiler/cli exec context query "refund payment"
 pnpm --filter @context-compiler/cli exec context validate
 pnpm --filter @context-compiler/cli exec context view backend
 
-# 为具体角色生成聚焦的任务上下文
-pnpm --filter @context-compiler/cli exec context task "支持订单部分退款" --role backend
+# 为具体角色和模块生成聚焦的任务上下文
+pnpm --filter @context-compiler/cli exec context task "支持订单部分退款" --role backend --module payments
 
 # 解释某个上下文节点的来源和图谱关系
-pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
+pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001 --expand calls
 ```
 
-当前 Local MVP 支持 Markdown PRD/测试用例、本地 OpenAPI 文档、TypeScript 源码符号提取、JSONL 图谱输出、Markdown 角色视图、任务上下文生成和基础诊断能力。
+当前 Local MVP 支持 Markdown PRD/测试用例、本地 OpenAPI 文档、语言无关的代码结构发现与符号索引、扁平和分区 JSONL 图谱输出、Markdown 角色视图、任务上下文生成和基础诊断能力。
 
 ---
 

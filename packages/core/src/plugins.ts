@@ -1,10 +1,14 @@
 import type { ContextEdge, ContextGraph, ContextNode, Diagnostic } from './schemas.js'
 import type { ContextProjectConfig, SourceConfig } from './config.js'
+import type { CodeIndexResult } from './code-index.js'
+import type { ProjectInventory } from './inventory.js'
 
 export interface CompilerContext {
   rootDir: string
   outputDir: string
   config?: ContextProjectConfig
+  inventory?: ProjectInventory
+  codeIndex?: CodeIndexResult
 }
 
 export interface ParseResult {
@@ -47,4 +51,3 @@ export interface CompilerPlugin {
   validators?: ValidatorPlugin[]
   emitters?: EmitterPlugin[]
 }
-

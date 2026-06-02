@@ -6,6 +6,7 @@ import type { ContextEdge, ContextGraph, ContextNode, Diagnostic } from './schem
 export interface TaskContextRequest {
   task: string
   role: string
+  module?: string
   maxTokens?: number
 }
 
@@ -30,7 +31,9 @@ export function generateTaskContext(
 ): TaskContextResult {
   const roleNodes = filterNodesForRole(graph, config, request.role)
   const roleNodeIds = new Set(roleNodes.map((node) => node.id))
-  const matchedNodes = roleNodes.filter((node) => nodeMatchesTask(node, request.task))
+  const matchedNodes = roleNodes.filter(
+    (node) => nodeMatchesTask(node, request.task) && nodeAllowedByModule(node, request.module, false)
+  )
   const expandedIds = new Set(matchedNodes.map((node) => node.id))
 
   for (const edge of graph.edges) {
@@ -46,7 +49,9 @@ export function generateTaskContext(
   }
 
   const nodes = dedupeNodes(
-    graph.nodes.filter((node) => expandedIds.has(node.id) && roleNodeIds.has(node.id))
+    graph.nodes.filter(
+      (node) => expandedIds.has(node.id) && roleNodeIds.has(node.id) && nodeAllowedByModule(node, request.module, true)
+    )
   )
   const nodeIds = new Set(nodes.map((node) => node.id))
   const edges = graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
@@ -65,6 +70,26 @@ export function generateTaskContext(
     recommendedChecks: recommendedChecksFor(nodes, diagnostics),
     outputSlug: taskSlug(request.task, matchedNodes)
   }
+}
+
+function nodeAllowedByModule(node: ContextNode, module: string | undefined, allowGlobalContext: boolean): boolean {
+  if (!module) {
+    return true
+  }
+
+  if (node.type !== 'code_symbol' && node.type !== 'module') {
+    return allowGlobalContext
+  }
+
+  const target = module.toLowerCase()
+  const metadata = node.metadata
+  const modulePath = typeof metadata.modulePath === 'string' ? metadata.modulePath.toLowerCase() : ''
+  const moduleId = typeof metadata.moduleId === 'string' ? metadata.moduleId.toLowerCase() : ''
+  const file = typeof metadata.file === 'string' ? metadata.file.toLowerCase() : ''
+  const sourceUri = node.source.uri.toLowerCase()
+  const title = node.title.toLowerCase()
+
+  return [modulePath, moduleId, file, sourceUri, title].some((value) => value.includes(target))
 }
 
 export function renderTaskContextMarkdown(result: TaskContextResult): string {
@@ -245,4 +270,3 @@ function translateCommonChineseTaskWords(task: string): string {
   }
   return parts.join('-')
 }
-
