@@ -1,0 +1,220 @@
+#!/usr/bin/env node
+import { access, readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { Command } from 'commander'
+import {
+  compileContextProject,
+  explainTrace,
+  loadContextConfig,
+  readGraphFiles,
+  resolveOutputDir,
+  type ContextGraph,
+  type ContextProjectConfig
+} from '@context-compiler/core'
+import { createFileEmitterPlugin } from '@context-compiler/plugin-emitters'
+import { createMarkdownParserPlugin } from '@context-compiler/plugin-markdown'
+import { createOpenApiParserPlugin } from '@context-compiler/plugin-openapi'
+import { createTypeScriptParserPlugin } from '@context-compiler/plugin-typescript'
+
+export interface RunCliOptions {
+  cwd?: string
+}
+
+export interface RunCliResult {
+  exitCode: number
+  stdout: string
+  stderr: string
+}
+
+interface CliRuntime {
+  cwd: string
+  writeOut(message: string): void
+  writeErr(message: string): void
+  exitCode: number
+}
+
+export async function runCli(args: string[], options: RunCliOptions = {}): Promise<RunCliResult> {
+  let stdout = ''
+  let stderr = ''
+  const runtime: CliRuntime = {
+    cwd: options.cwd ?? process.cwd(),
+    exitCode: 0,
+    writeOut(message) {
+      stdout += message
+    },
+    writeErr(message) {
+      stderr += message
+    }
+  }
+
+  const program = createProgram(runtime)
+  try {
+    await program.parseAsync(args, { from: 'user' })
+  } catch (error) {
+    runtime.exitCode = typeof error === 'object' && error && 'exitCode' in error
+      ? Number((error as { exitCode: unknown }).exitCode)
+      : 1
+    if (!(typeof error === 'object' && error && 'code' in error)) {
+      runtime.writeErr(`${error instanceof Error ? error.message : String(error)}\n`)
+    }
+  }
+
+  return {
+    exitCode: runtime.exitCode,
+    stdout,
+    stderr
+  }
+}
+
+export function createProgram(runtime: CliRuntime): Command {
+  const program = new Command()
+    .name('context')
+    .description('Compile project knowledge into structured AI context.')
+    .exitOverride()
+    .configureOutput({
+      writeOut: (message) => runtime.writeOut(message),
+      writeErr: (message) => runtime.writeErr(message)
+    })
+
+  program
+    .command('init')
+    .description('Initialize a Context Compiler config file.')
+    .action(async () => {
+      await initProject(runtime)
+    })
+
+  program
+    .command('compile')
+    .description('Compile project context.')
+    .action(async () => {
+      const graph = await compileProject(runtime.cwd)
+      runtime.writeOut(
+        `Compiled ${graph.nodes.length} nodes, ${graph.edges.length} edges, ${graph.diagnostics.length} diagnostics.\n`
+      )
+    })
+
+  program
+    .command('validate')
+    .description('Compile and print context diagnostics.')
+    .action(async () => {
+      const graph = await compileProject(runtime.cwd)
+      if (graph.diagnostics.length === 0) {
+        runtime.writeOut('No diagnostics.\n')
+        return
+      }
+
+      for (const diagnostic of graph.diagnostics) {
+        runtime.writeOut(`[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}\n`)
+      }
+      if (graph.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
+        runtime.exitCode = 1
+      }
+    })
+
+  program
+    .command('view')
+    .argument('<role>', 'Role name, such as backend or reviewer.')
+    .description('Print a compiled role view.')
+    .action(async (role: string) => {
+      const path = join(resolveOutputDir(runtime.cwd), 'views', `${role}.md`)
+      runtime.writeOut(await readFile(path, 'utf8'))
+    })
+
+  program
+    .command('explain')
+    .argument('<nodeId>', 'Context node ID to explain.')
+    .description('Explain a context node source and graph relationships.')
+    .action(async (nodeId: string) => {
+      const graph = await readGraphFiles(resolveOutputDir(runtime.cwd))
+      runtime.writeOut(formatExplanation(graph, nodeId))
+    })
+
+  return program
+}
+
+async function initProject(runtime: CliRuntime): Promise<void> {
+  const configPath = join(runtime.cwd, 'context.config.ts')
+  try {
+    await access(configPath)
+    runtime.writeErr('context.config.ts already exists.\n')
+    runtime.exitCode = 1
+    return
+  } catch {
+    // Missing config is the normal init path.
+  }
+
+  await writeFile(configPath, INITIAL_CONFIG)
+  runtime.writeOut('Created context.config.ts\n')
+}
+
+async function compileProject(cwd: string): Promise<ContextGraph> {
+  const { config } = await loadContextConfig(cwd)
+  const result = await compileContextProject(config, {
+    rootDir: cwd,
+    parsers: [
+      createMarkdownParserPlugin(),
+      createOpenApiParserPlugin(),
+      createTypeScriptParserPlugin()
+    ],
+    emitters: [createFileEmitterPlugin()]
+  })
+  return result.graph
+}
+
+function formatExplanation(graph: ContextGraph, nodeId: string): string {
+  const explanation = explainTrace(graph, nodeId)
+  const lines = [
+    `# ${explanation.node.id}`,
+    '',
+    `Title: ${explanation.node.title}`,
+    `Type: ${explanation.node.type}`,
+    `Source: ${explanation.node.source.uri}`,
+    ''
+  ]
+
+  if (explanation.relatedEdges.length > 0) {
+    lines.push('## Related Edges', '')
+    for (const edge of explanation.relatedEdges) {
+      lines.push(`- ${edge.from} --${edge.type}--> ${edge.to}`)
+    }
+    lines.push('')
+  }
+
+  if (explanation.relatedNodes.length > 0) {
+    lines.push('## Related Nodes', '')
+    for (const node of explanation.relatedNodes) {
+      lines.push(`- ${node.id}: ${node.title}`)
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n').trimEnd() + '\n'
+}
+
+const INITIAL_CONFIG = `import { defineContextProject } from '@context-compiler/core'
+
+export default defineContextProject({
+  project: {
+    name: 'example-project',
+    domains: [],
+    defaultLanguage: 'zh-CN'
+  },
+  sources: [
+    { type: 'markdown', name: 'product-docs', path: './docs/product' },
+    { type: 'markdown', name: 'test-cases', path: './docs/tests' },
+    { type: 'openapi', name: 'api-spec', path: './openapi.yaml' },
+    { type: 'git', name: 'source', path: './src' }
+  ],
+  roles: {
+    backend: { include: ['requirement', 'api_contract', 'code_symbol', 'test_case', 'bug'] },
+    reviewer: { include: ['*'], diagnostics: true }
+  }
+})
+`
+
+if (process.argv[1]?.endsWith('index.js')) {
+  const result = await runCli(process.argv.slice(2))
+  process.stdout.write(result.stdout)
+  process.stderr.write(result.stderr)
+  process.exitCode = result.exitCode
+}

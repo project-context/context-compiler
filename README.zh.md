@@ -12,6 +12,30 @@
 
 ---
 
+## 快速开始
+
+```bash
+pnpm install
+pnpm build
+
+# 在项目工作区创建 context.config.ts
+pnpm --filter @context-compiler/cli exec context init
+
+# 将本地 Markdown、OpenAPI 和 TypeScript 源编译到 .context/
+pnpm --filter @context-compiler/cli exec context compile
+
+# 输出诊断结果和按角色组织的上下文
+pnpm --filter @context-compiler/cli exec context validate
+pnpm --filter @context-compiler/cli exec context view backend
+
+# 解释某个上下文节点的来源和图谱关系
+pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
+```
+
+当前 Local MVP 支持 Markdown PRD/测试用例、本地 OpenAPI 文档、TypeScript 源码符号提取、JSONL 图谱输出、Markdown 角色视图和基础诊断能力。
+
+---
+
 ## 为什么需要 Context Compiler？
 
 传统软件项目通常围绕“人”来组织协作。

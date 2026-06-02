@@ -14,6 +14,30 @@ The goal is to reduce repeated context explanation and help AI agents work insid
 
 ---
 
+## Quickstart
+
+```bash
+pnpm install
+pnpm build
+
+# Create context.config.ts in a project workspace
+pnpm --filter @context-compiler/cli exec context init
+
+# Compile local Markdown, OpenAPI, and TypeScript sources into .context/
+pnpm --filter @context-compiler/cli exec context compile
+
+# Print diagnostics and role-specific context
+pnpm --filter @context-compiler/cli exec context validate
+pnpm --filter @context-compiler/cli exec context view backend
+
+# Explain the provenance and graph relationships of a context node
+pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
+```
+
+The current Local MVP supports Markdown PRD/test-case sources, OpenAPI documents, local TypeScript source symbol extraction, JSONL graph output, Markdown role views, and basic diagnostics.
+
+---
+
 ## Why Context Compiler?
 
 Traditional software projects are usually organized around humans.

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@context-compiler/core": ["packages/core/src/index.ts"],
+      "@context-compiler/plugin-markdown": ["packages/plugin-markdown/src/index.ts"],
+      "@context-compiler/plugin-openapi": ["packages/plugin-openapi/src/index.ts"],
+      "@context-compiler/plugin-typescript": ["packages/plugin-typescript/src/index.ts"],
+      "@context-compiler/plugin-emitters": ["packages/plugin-emitters/src/index.ts"],
+      "@context-compiler/cli": ["packages/cli/src/index.ts"]
+    }
+  }
+}
+
