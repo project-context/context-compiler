@@ -30,11 +30,14 @@ pnpm --filter @context-compiler/cli exec context compile
 pnpm --filter @context-compiler/cli exec context validate
 pnpm --filter @context-compiler/cli exec context view backend
 
+# Generate focused task context for a role
+pnpm --filter @context-compiler/cli exec context task "Support partial refund" --role backend
+
 # Explain the provenance and graph relationships of a context node
 pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
 ```
 
-The current Local MVP supports Markdown PRD/test-case sources, OpenAPI documents, local TypeScript source symbol extraction, JSONL graph output, Markdown role views, and basic diagnostics.
+The current Local MVP supports Markdown PRD/test-case sources, OpenAPI documents, local TypeScript source symbol extraction, JSONL graph output, Markdown role views, task context generation, and basic diagnostics.
 
 ---
 

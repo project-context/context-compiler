@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-import { access, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { Command } from 'commander'
 import {
   compileContextProject,
   explainTrace,
+  generateTaskContext,
   loadContextConfig,
   readGraphFiles,
+  renderTaskContextMarkdown,
   resolveOutputDir,
   type ContextGraph,
   type ContextProjectConfig
@@ -127,6 +129,28 @@ export function createProgram(runtime: CliRuntime): Command {
     .action(async (nodeId: string) => {
       const graph = await readGraphFiles(resolveOutputDir(runtime.cwd))
       runtime.writeOut(formatExplanation(graph, nodeId))
+    })
+
+  program
+    .command('task')
+    .argument('<task>', 'Task description to focus context around.')
+    .requiredOption('--role <role>', 'Role name, such as backend or tester.')
+    .option('--max-tokens <tokens>', 'Approximate maximum context token budget.')
+    .description('Generate focused task context from the compiled graph.')
+    .action(async (task: string, options: { role: string; maxTokens?: string }) => {
+      const outputDir = resolveOutputDir(runtime.cwd)
+      const graph = await readGraphFiles(outputDir)
+      const { config } = await loadContextConfig(runtime.cwd)
+      const result = generateTaskContext(graph, config, {
+        task,
+        role: options.role,
+        maxTokens: options.maxTokens ? Number(options.maxTokens) : undefined
+      })
+      const markdown = renderTaskContextMarkdown(result)
+      const tasksDir = join(outputDir, 'tasks')
+      await mkdir(tasksDir, { recursive: true })
+      await writeFile(join(tasksDir, `${result.outputSlug}.${options.role}.md`), markdown)
+      runtime.writeOut(markdown)
     })
 
   return program

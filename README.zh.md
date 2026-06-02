@@ -28,11 +28,14 @@ pnpm --filter @context-compiler/cli exec context compile
 pnpm --filter @context-compiler/cli exec context validate
 pnpm --filter @context-compiler/cli exec context view backend
 
+# 为具体角色生成聚焦的任务上下文
+pnpm --filter @context-compiler/cli exec context task "支持订单部分退款" --role backend
+
 # 解释某个上下文节点的来源和图谱关系
 pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
 ```
 
-当前 Local MVP 支持 Markdown PRD/测试用例、本地 OpenAPI 文档、TypeScript 源码符号提取、JSONL 图谱输出、Markdown 角色视图和基础诊断能力。
+当前 Local MVP 支持 Markdown PRD/测试用例、本地 OpenAPI 文档、TypeScript 源码符号提取、JSONL 图谱输出、Markdown 角色视图、任务上下文生成和基础诊断能力。
 
 ---
 

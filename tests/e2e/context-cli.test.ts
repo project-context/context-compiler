@@ -75,6 +75,8 @@ domain: order
 status: active
 owner: tester
 updatedAt: 2026-06-02T00:00:00.000Z
+requirementIds:
+  - REQ-ORDER-REFUND-001
 ---
 
 # 退款测试
@@ -149,5 +151,37 @@ describe('context CLI', () => {
     expect(explain.exitCode).toBe(0)
     expect(explain.stdout).toContain('feishu://doc/refund')
     expect(explain.stdout).toContain('relates_to')
+  })
+
+  it('generates task context markdown from the compiled graph', async () => {
+    workspace = await mkdtemp(join(tmpdir(), 'context-cli-task-'))
+    await writeExampleShop(workspace)
+
+    const compile = await runCli(['compile'], { cwd: workspace })
+    expect(compile.exitCode).toBe(0)
+
+    const task = await runCli(['task', '支持订单部分退款', '--role', 'backend'], { cwd: workspace })
+    expect(task.exitCode).toBe(0)
+    expect(task.stdout).toContain('REQ-ORDER-REFUND-001')
+    expect(task.stdout).toContain('POST /api/orders/{id}/refund')
+    expect(task.stdout).toContain('TC-REFUND-001')
+
+    await expect(
+      readFile(join(workspace, '.context', 'tasks', 'support-partial-refund.backend.md'), 'utf8')
+    ).resolves.toContain('Task Context: 支持订单部分退款')
+  })
+
+  it('prints a clear empty task context for unknown tasks', async () => {
+    workspace = await mkdtemp(join(tmpdir(), 'context-cli-task-empty-'))
+    await writeExampleShop(workspace)
+
+    const compile = await runCli(['compile'], { cwd: workspace })
+    expect(compile.exitCode).toBe(0)
+
+    const task = await runCli(['task', 'unknown checkout coupon', '--role', 'backend'], {
+      cwd: workspace
+    })
+    expect(task.exitCode).toBe(0)
+    expect(task.stdout).toContain('No directly related context found.')
   })
 })
