@@ -1,16 +1,55 @@
 # Context Compiler
 
-[中文](./README.zh.md)
-
-> Compile scattered software project knowledge into structured, traceable, role-aware context for AI agents.
+> Generate a project-level context runtime workspace for AI coding agents.
 
 **Context Compiler** is an experimental Context Engineering project for AI-assisted software development.
 
-It turns product documents, design specs, source code, API definitions, test cases, historical bugs, meeting notes, and runtime knowledge into structured context that AI agents can understand, trace, validate, and consume by role.
+It turns product documents, design specs, source code, API definitions, test cases, historical bugs, meeting notes, and runtime knowledge into a `.context/` workspace containing context artifacts, a project graph, JSON indexes, runtime providers, MCP tools, project skills, diagnostics, and agent integrations.
+
+Users should not hand-author the runtime layer. The more complete the project materials are, the more precisely Context Compiler can infer the best `.context/` workspace for Codex, Claude Code, or another coding agent.
 
 The goal is not to replace product managers, designers, developers, testers, or reviewers.
 
-The goal is to reduce repeated context explanation and help AI agents work inside a real software project with the right background, the right constraints, and the right source of truth.
+The goal is to reduce repeated context explanation and help AI agents work inside a real software project with the right background, the right constraints, the right source of truth, and project-specific runtime query tools.
+
+---
+
+## Current Architecture
+
+Context Compiler now uses a **stable kernel + replaceable components + auto-planned project pipelines** architecture.
+
+```txt
+Components = installable, replaceable capabilities contributed by the ecosystem
+Pipelines  = compiler-generated execution plans that choose which components run for known sources
+Kernel     = stable runtime for planning, scheduling, validation, diagnostics, and artifacts
+```
+
+The compiler lifecycle is organized as:
+
+```txt
+Resolve
+  -> Ingest
+  -> Parse
+  -> Normalize
+  -> Classify
+  -> Enrich
+  -> Link
+  -> Validate
+  -> Govern
+  -> Compress
+  -> Emit
+```
+
+`Resolve` is a kernel stage. Other stages are replaceable. For example, ingest components can target local files, GitHub, Feishu, Figma, or Jira; link components can use built-in rules, enterprise rules, Neo4j, GraphRAG, Sourcegraph, CodeQL, or another mature graph adapter.
+
+Official implementations are ordinary components. The current `@context-compiler/distribution-local` package bundles local components and auto-plans the default `compile` pipeline from declared source types such as Markdown, OpenAPI, and local source code.
+
+See:
+
+* [Pipeline Architecture](./docs/architecture/pipeline-architecture.md)
+* [Component API](./docs/sdk/component-api.md)
+* [Pipeline Examples](./docs/examples/pipelines.md)
+* [Project Structure](./docs/architecture/project-structure.md)
 
 ---
 
@@ -18,31 +57,27 @@ The goal is to reduce repeated context explanation and help AI agents work insid
 
 ```bash
 pnpm install
-pnpm build
+pnpm test
+pnpm typecheck
 
-# Create context.config.ts in a project workspace
+# Create context.config.json
 pnpm --filter @context-compiler/cli exec context init
 
-# Discover large-repo inventory and build language-agnostic code indexes
-pnpm --filter @context-compiler/cli exec context inventory
-pnpm --filter @context-compiler/cli exec context index
-
-# Compile local Markdown, OpenAPI, and code sources into .context/
+# Compile local project context
 pnpm --filter @context-compiler/cli exec context compile
 
-# Query, print diagnostics, and inspect role-specific context
-pnpm --filter @context-compiler/cli exec context query "refund payment"
-pnpm --filter @context-compiler/cli exec context validate
-pnpm --filter @context-compiler/cli exec context view backend
+# Inspect compiled runtime context
+pnpm --filter @context-compiler/cli exec context view implementation
+pnpm --filter @context-compiler/cli exec context query refund
+pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001
+pnpm --filter @context-compiler/cli exec context doctor
 
-# Generate focused task context for a role and module
-pnpm --filter @context-compiler/cli exec context task "Support partial refund" --role backend --module payments
+# Generate task context
+pnpm --filter @context-compiler/cli exec context task "Support partial refund" --focus implementation --module refund
 
-# Explain the provenance and graph relationships of a context node
-pnpm --filter @context-compiler/cli exec context explain REQ-ORDER-REFUND-001 --expand calls
+# Start the project MCP server from the CLI binary
+pnpm --filter @context-compiler/cli exec context mcp start
 ```
-
-The current Local MVP supports Markdown PRD/test-case sources, OpenAPI documents, language-agnostic code inventory and symbol indexing, flat and partitioned JSONL graph output, Markdown role views, task context generation, and basic diagnostics.
 
 ---
 
@@ -94,7 +129,7 @@ Instead:
 2. Context Compiler ingests project materials from multiple sources.
 3. The materials are parsed, normalized, linked, validated, and compressed.
 4. A project-level Context Graph is generated.
-5. Role-specific views and task-specific context packages are emitted.
+5. Inferred context views and task-specific context packages are emitted.
 6. AI agents consume the compiled context through files, MCP tools, or agent-specific integrations.
 
 ```txt
@@ -111,7 +146,7 @@ Context Compiler
         ↓
 Project Context Graph
         ↓
-Role Views / Task Context / Diagnostics / Agent Skill Packs
+Context Views / Task Context / Diagnostics / Agent Skill Packs
         ↓
 Product Agent / Design Agent / Frontend Agent / Backend Agent / Test Agent / Reviewer Agent
 ```
@@ -119,7 +154,7 @@ Product Agent / Design Agent / Frontend Agent / Backend Agent / Test Agent / Rev
 The key idea is simple:
 
 > AI should not consume messy human materials directly.
-> AI should consume compiled, structured, traceable, role-aware project context.
+> AI should consume compiled, structured, traceable, workspace-aware project context.
 
 ---
 
@@ -133,7 +168,7 @@ A high-level summary of the project:
 
 * project purpose;
 * business domains;
-* user roles;
+* user groups or personas;
 * technical stack;
 * repository structure;
 * important global constraints;
@@ -165,28 +200,28 @@ Each domain may contain:
 * known risks;
 * historical decisions.
 
-### 3. Role Views
+### 3. Context Views
 
-Different roles need different context.
+Different tasks need different slices of the same project graph.
 
-Context Compiler can emit role-specific views for:
+Context Compiler infers context views from existing content instead of asking users to configure roles:
 
-* Product Agent;
-* Design Agent;
-* Frontend Agent;
-* Backend Agent;
-* Test Agent;
-* Reviewer Agent.
+* `project`: workspace overview and broad project context;
+* `implementation`: requirements, APIs, code symbols, tests, and risks for coding work;
+* `review`: full graph plus diagnostics for review work;
+* `testing`: requirements, acceptance criteria, test cases, bugs, and risks;
+* `product`: emitted when product-oriented content exists;
+* `design`: emitted when design-oriented content exists.
 
 For example:
 
 ```txt
 .context/views/product.md
 .context/views/design.md
-.context/views/frontend.md
-.context/views/backend.md
-.context/views/tester.md
-.context/views/reviewer.md
+.context/views/project.md
+.context/views/implementation.md
+.context/views/review.md
+.context/views/testing.md
 ```
 
 ### 4. Task Context
@@ -196,13 +231,13 @@ For a concrete task, Context Compiler can generate a focused context package.
 Example:
 
 ```bash
-context task "Support partial refund for orders" --role backend
+context task "Support partial refund for orders" --focus implementation
 ```
 
 Possible output:
 
 ```txt
-.context/tasks/support-partial-refund.backend.md
+.context/tasks/support-partial-refund.implementation.md
 ```
 
 A task context may include:
@@ -336,7 +371,7 @@ A typical Context Compiler architecture looks like this:
                     ↓
 ┌──────────────────────────────────────────────┐
 │              Context Artifacts               │
-│ Role Views / Task Context / Diagnostics      │
+│ Context Views / Task Context / Diagnostics      │
 └──────────────────────────────────────────────┘
                     ↓
 ┌──────────────────────────────────────────────┐
@@ -448,7 +483,7 @@ Generate concise AI-readable context at different levels:
 
 * project-level;
 * domain-level;
-* role-level;
+* view-level;
 * task-level.
 
 ### Emit
@@ -467,21 +502,15 @@ A compiled project may contain:
 
   views/
     project.md
+    implementation.md
+    review.md
+    testing.md
     product.md
     design.md
-    frontend.md
-    backend.md
-    tester.md
-    reviewer.md
-
-  domains/
-    auth.md
-    order.md
-    payment.md
 
   tasks/
-    TASK-1234.backend.md
-    TASK-1234.tester.md
+    TASK-1234.implementation.md
+    TASK-1234.testing.md
 
   graph/
     nodes.jsonl
@@ -489,16 +518,37 @@ A compiled project may contain:
     diagnostics.jsonl
 
   indexes/
-    vector.index
-    symbol.index
-    api.index
+    manifest.json
+    symbols.json
+    apis.json
+    search.json
 
-  artifacts/
-    claude-code/
-    cursor/
+  runtime/
+    runtime-plan.json
+    runtime.config.json
+    agent-install-plan.json
+    trace.jsonl
+    run-summary.json
+    providers/
+
+  mcp/
+    server.config.json
+    tools.json
+
+  tools/
+  skills/
+
+  agents/
     codex/
+      AGENTS.generated.md
+    claude/
+      CLAUDE.generated.md
+    cursor/
+      rules/
 
-  cache/
+  plugins/
+  diagnostics/
+    context-health.json
 ```
 
 ---
@@ -507,38 +557,64 @@ A compiled project may contain:
 
 ```json
 {
-  "project": "example-shop",
+  "schemaVersion": "context-runtime.v1",
+  "workspace": {
+    "rootDir": "/repo/examples/local-shop",
+    "name": "local-shop",
+    "configPath": "/repo/examples/local-shop/context.config.json"
+  },
   "compiledAt": "2026-06-02T10:00:00Z",
   "compilerVersion": "0.1.0",
-  "sources": [
-    {
-      "id": "prd-order-v3",
-      "type": "prd",
-      "uri": "feishu://doc/example",
-      "status": "active",
-      "updatedAt": "2026-06-01T12:00:00Z"
-    }
-  ],
-  "views": {
-    "frontend": ".context/views/frontend.md",
-    "backend": ".context/views/backend.md",
-    "tester": ".context/views/tester.md",
-    "reviewer": ".context/views/reviewer.md"
-  },
+  "pipeline": "compile",
   "graph": {
     "nodes": ".context/graph/nodes.jsonl",
-    "edges": ".context/graph/edges.jsonl"
+    "edges": ".context/graph/edges.jsonl",
+    "diagnostics": ".context/graph/diagnostics.jsonl"
   },
-  "diagnostics": ".context/graph/diagnostics.jsonl"
+  "indexes": {
+    "symbols": ".context/indexes/symbols.json",
+    "apis": ".context/indexes/apis.json",
+    "search": ".context/indexes/search.json"
+  },
+  "packs": [
+    { "id": "context-view:project", "kind": "context-view", "view": "project" },
+    { "id": "context-view:implementation", "kind": "context-view", "view": "implementation" }
+  ],
+  "runtime": {
+    "plan": ".context/runtime/runtime-plan.json",
+    "config": ".context/runtime/runtime.config.json",
+    "trace": ".context/runtime/trace.jsonl",
+    "runSummary": ".context/runtime/run-summary.json",
+    "agentInstallPlan": ".context/runtime/agent-install-plan.json",
+    "freshness": { "status": "fresh", "checkedAt": "2026-06-02T10:00:00Z" },
+    "installStatus": { "codex": "planned", "claude": "planned" },
+    "capabilitySurfaces": {
+      "codex": ["AGENTS.md", ".codex/config.toml", ".agents/skills", ".codex/agents"],
+      "claude": ["CLAUDE.md", ".mcp.json", ".claude/skills", ".claude/settings.json"]
+    },
+    "providers": [],
+    "tools": ["context-compile", "context-doctor", "context-task-implementation", "context-task-testing", "context-review"],
+    "skills": ["implementation", "testing", "review", "product"],
+    "agents": ["codex", "claude", "cursor"],
+    "plugins": ["context-compiler-local"],
+    "mcp": {
+      "serverConfig": ".context/mcp/server.config.json",
+      "tools": ".context/mcp/tools.json"
+    }
+  },
+  "diagnostics": {
+    "health": ".context/diagnostics/context-health.json",
+    "graph": ".context/graph/diagnostics.jsonl"
+  }
 }
 ```
 
 ---
 
-## Example Role View
+## Example Context View
 
 ```md
-# Backend Role Context
+# Implementation Context
 
 ## Scope
 
@@ -586,13 +662,11 @@ Historical risks:
 
 ## Example CLI
 
-> The CLI interface is still a proposal.
-
 ```bash
 # Initialize Context Compiler in a project
 context init
 
-# Sync external sources
+# Sync configured sources into a parser-ready manifest
 context sync
 
 # Compile project context
@@ -601,121 +675,127 @@ context compile
 # Validate context quality
 context validate
 
-# Generate role view
-context view backend
+# Generate context view
+context view implementation
 
 # Generate task-specific context
-context task "Support partial refund for orders" --role backend
+context task "Support partial refund for orders" --focus implementation
+
+# Install native Codex and Claude Code integration files
+context integrate all
 
 # Explain where a context item came from
 context explain REQ-ORDER-REFUND-001
 
-# Analyze impact of a code change
-context diff --from main --to feature/partial-refund
-
-# Emit agent-specific artifacts
-context emit --target claude-code
-context emit --target cursor
-context emit --target codex
+# Inspect local inventory / symbol index output
+context inventory
+context index
 ```
 
 ---
 
-## Plugin System
+## Component System
 
-Context Compiler is designed to be extensible.
+Context Compiler is extended through **components**, not a generic plugin folder. Each component belongs to one pipeline stage and communicates through stable artifacts.
 
-### Connector Plugins
+### Ingest Components
 
-Connect to external sources.
+Collect human/project materials and emit `RawArtifact`.
 
 Examples:
 
 ```txt
-connector-git
-connector-feishu
-connector-notion
-connector-confluence
-connector-figma
-connector-jira
-connector-linear
-connector-openapi
-connector-testrail
-connector-zentao
+ingest.local-files
+ingest.git
+ingest.github
+ingest.feishu
+ingest.notion
+ingest.confluence
+ingest.figma
+ingest.jira
+ingest.linear
+ingest.ci-report
 ```
 
-### Parser Plugins
+### Parse Components
 
-Parse raw content into structured blocks.
+Parse raw content and emit `ParsedArtifact`.
 
 Examples:
 
 ```txt
-parser-markdown
-parser-docx
-parser-html
-parser-openapi
-parser-source-code
-parser-xlsx
-parser-figma
+parse.markdown
+parse.docx
+parse.html
+parse.openapi
+parse.source-code
+parse.xlsx
+parse.figma
 ```
 
-### Linker Plugins
+### Normalize / Classify Components
 
-Build graph relationships.
+Convert source-specific structures into unified records, then classify them into requirements, APIs, tests, bugs, code symbols, and other semantic facts.
 
 Examples:
 
 ```txt
-linker-requirement-api
-linker-api-code
-linker-requirement-test
-linker-design-route
-linker-bug-regression
+normalize.markdown-doc
+normalize.openapi-contract
+normalize.code-symbol
+classify.context-facts
+classify.enterprise-llm
 ```
 
-### Validator Plugins
+### Enrich / Link Components
 
-Check context quality.
+Add inventory, symbol indexes, external indexes, or graph relationships. Link components can be built-in rules, mature graph/RAG/code-intelligence adapters, or enterprise implementations.
 
 Examples:
 
 ```txt
-validator-missing-tests
-validator-api-mismatch
-validator-deprecated-context
-validator-design-requirement-mismatch
-validator-conflicting-rules
+enrich.inventory
+enrich.symbol-index
+enrich.sourcegraph
+link.default-rules
+link.neo4j-adapter
+link.graph-rag
+link.codeql-adapter
+link.enterprise-rules
 ```
 
-### Emitter Plugins
+### Validate / Govern Components
 
-Emit context artifacts.
+Check context quality and enforce governance before output.
 
 Examples:
 
 ```txt
-emitter-markdown
-emitter-jsonl
-emitter-mcp
-emitter-claude-code
-emitter-cursor
-emitter-codex
-emitter-html-report
+validate.default-rules
+validate.api-mismatch
+validate.conflicting-rules
+govern.redaction
+govern.policy-access
+govern.pii-filter
+govern.external-agent-filter
 ```
 
-### Policy Plugins
+### Compress / Emit Components
 
-Control visibility, security, and privacy.
+Generate context views, task context, agent packs, MCP data, files, or reports.
 
 Examples:
 
 ```txt
-policy-redaction
-policy-role-access
-policy-pii-filter
-policy-secret-filter
-policy-external-agent-filter
+compress.context-view
+compress.task-context
+compress.runtime-plan
+compress.reviewer-context
+emit.files
+emit.mcp
+emit.codex
+emit.cursor
+emit.html-report
 ```
 
 ---
@@ -726,58 +806,28 @@ policy-external-agent-filter
 import { defineContextProject } from '@context-compiler/core'
 
 export default defineContextProject({
-  project: {
-    name: 'example-shop',
-    domains: ['auth', 'order', 'payment', 'inventory'],
-    defaultLanguage: 'en-US'
-  },
-
   sources: [
     {
-      type: 'git',
-      name: 'frontend',
-      path: './apps/web'
-    },
-    {
-      type: 'git',
-      name: 'backend',
-      path: './apps/api'
+      type: 'markdown',
+      name: 'product-docs',
+      path: './sources/product-docs'
     },
     {
       type: 'openapi',
       name: 'api-spec',
-      path: './openapi.yaml'
+      path: './sources/api-spec/openapi.yaml'
     },
     {
-      type: 'markdown',
-      name: 'product-docs',
-      path: './docs/product'
+      type: 'code',
+      name: 'source',
+      path: './sources/source-code'
     },
     {
       type: 'markdown',
       name: 'test-cases',
-      path: './docs/tests'
+      path: './sources/test-cases'
     }
   ],
-
-  roles: {
-    product: {
-      include: ['requirement', 'business_rule', 'decision', 'diagnostic']
-    },
-    frontend: {
-      include: ['requirement', 'design_spec', 'api_contract', 'ui_component', 'test_case']
-    },
-    backend: {
-      include: ['requirement', 'api_contract', 'domain_model', 'database', 'test_case', 'bug']
-    },
-    tester: {
-      include: ['requirement', 'acceptance_criteria', 'test_case', 'bug', 'risk']
-    },
-    reviewer: {
-      include: ['*'],
-      diagnostics: true
-    }
-  },
 
   policies: {
     redact: [
@@ -789,24 +839,11 @@ export default defineContextProject({
     ],
     deprecatedHandling: 'warn',
     conflictHandling: 'diagnose'
-  },
-
-  emitters: [
-    {
-      type: 'markdown',
-      outputDir: '.context/views'
-    },
-    {
-      type: 'jsonl',
-      outputDir: '.context/graph'
-    },
-    {
-      type: 'mcp',
-      port: 3921
-    }
-  ]
+  }
 })
 ```
+
+`project`, `roles`, `profiles`, and `pipelines` are intentionally absent from normal user config. The workspace is the directory that contains `context.config.json`; the compiler infers project metadata, the local compile pipeline, context views, runtime plan, and task context from the source content.
 
 ---
 
@@ -818,7 +855,7 @@ Possible MCP tools:
 
 ```txt
 get_project_brief
-get_role_view
+get_context_view
 get_domain_context
 get_task_context
 search_context
@@ -837,7 +874,7 @@ Example request:
   "tool": "get_task_context",
   "input": {
     "task": "Support partial refund for orders",
-    "role": "backend",
+    "focus": "implementation",
     "maxTokens": 12000
   }
 }
@@ -847,15 +884,16 @@ Example response:
 
 ```json
 {
-  "summary": "...",
-  "requirements": [],
-  "businessRules": [],
-  "apis": [],
-  "services": [],
-  "databaseTables": [],
-  "tests": [],
-  "risks": [],
-  "recommendedChecks": []
+  "data": {
+    "task": "Support partial refund for orders",
+    "focus": "implementation",
+    "nodes": [],
+    "edges": [],
+    "recommendedChecks": []
+  },
+  "evidence": [],
+  "freshness": { "status": "fresh" },
+  "diagnostics": []
 }
 ```
 
@@ -878,7 +916,7 @@ confidence
 authority level
 effective time
 deprecation state
-owner role
+source owner or team
 ```
 
 This allows AI agents to know:
@@ -919,7 +957,7 @@ Context Compiler should support:
 
 * secret detection;
 * PII redaction;
-* role-based context access;
+* source and focus based context access;
 * source-level permissions;
 * external-agent filtering;
 * audit trails;
@@ -937,7 +975,7 @@ This is especially important when context is used by external AI services or thi
 Generate task-specific backend or frontend context before coding.
 
 ```bash
-context task "Add login verification code expiration handling" --role backend
+context task "Add login verification code expiration handling" --focus implementation
 ```
 
 ### PR Review
@@ -962,7 +1000,7 @@ The Reviewer Agent can check whether the change is consistent with:
 Generate test context from acceptance criteria and historical bugs.
 
 ```bash
-context task "Generate regression tests for refund retry" --role tester
+context task "Generate regression tests for refund retry" --focus testing
 ```
 
 ### Requirement Review
@@ -979,7 +1017,7 @@ Generate a project brief and domain tours for new developers or AI agents.
 
 ```bash
 context view project
-context view backend
+context view implementation
 ```
 
 ---
@@ -997,13 +1035,13 @@ Codebase understanding:
 code -> graph -> search/explain/visualize
 
 Context Compiler:
-product/design/code/test/bugs/logs -> context graph -> role views/task context/diagnostics -> multi-agent collaboration
+product/design/code/test/bugs/logs -> context graph -> context views/task context/diagnostics -> multi-agent collaboration
 ```
 
 In short:
 
 > Codebase graph tools help AI understand code.
-> Context Compiler helps AI understand the project and work correctly by role.
+> Context Compiler helps AI understand the project and work correctly with task focus.
 
 ---
 
@@ -1021,7 +1059,7 @@ The initial goal is to build a minimal compiler that supports:
 * requirement-to-API linking;
 * API-to-code linking;
 * requirement-to-test linking;
-* role view generation;
+* context view generation;
 * basic diagnostics.
 
 ---
@@ -1043,7 +1081,7 @@ The initial goal is to build a minimal compiler that supports:
 * OpenAPI parser.
 * Basic TypeScript source parser.
 * Context graph stored as JSONL or SQLite.
-* Markdown role view emitter.
+* Markdown context view emitter.
 * Basic diagnostics.
 
 ### Phase 2: Task Context
@@ -1091,7 +1129,7 @@ Contributions are welcome in the following areas:
 * connector plugins;
 * parser plugins;
 * validator rules;
-* role view templates;
+* context view templates;
 * MCP integration;
 * AI agent workflow design;
 * examples and case studies.
@@ -1102,7 +1140,7 @@ If you are interested in AI coding agents, software engineering workflows, conte
 
 ## License
 
-TBD.
+License will be selected before the first public release.
 
 ---
 

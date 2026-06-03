@@ -1,0 +1,8 @@
+{
+  "sources": [
+    { "type": "markdown", "name": "product-docs", "path": "./sources/product-docs" },
+    { "type": "markdown", "name": "test-cases", "path": "./sources/test-cases" },
+    { "type": "openapi", "name": "api-spec", "path": "./sources/api-spec/openapi.yaml" },
+    { "type": "code", "name": "source", "path": "./sources/source-code" }
+  ]
+}

@@ -1,0 +1,42 @@
+import type { ContextGraph, ContextRuntimeConfig, ContextRuntimeHealth, Diagnostic } from '../contracts/index.js'
+import type { ContextIndexes } from './indexes.js'
+import { CONTEXT_RUNTIME_SCHEMA_VERSION } from './schema.js'
+
+export function buildContextRuntimeHealth(
+  graph: ContextGraph,
+  viewCount: number,
+  indexes: ContextIndexes,
+  runtimeConfig: Required<ContextRuntimeConfig>,
+  runtimeDiagnostics: Diagnostic[] = []
+): ContextRuntimeHealth {
+  const diagnosticsBySeverity = {
+    info: graph.diagnostics.filter((diagnostic) => diagnostic.severity === 'info').length,
+    warning: graph.diagnostics.filter((diagnostic) => diagnostic.severity === 'warning').length,
+    error: graph.diagnostics.filter((diagnostic) => diagnostic.severity === 'error').length
+  }
+  const issueCount = diagnosticsBySeverity.warning + diagnosticsBySeverity.error
+  const capabilityGaps = runtimeDiagnostics
+    .filter((diagnostic) => diagnostic.code === 'runtime.capability.not-generated')
+    .map((diagnostic) => ({
+      id: diagnostic.code,
+      message: diagnostic.message,
+      evidence: []
+    }))
+  return {
+    schemaVersion: CONTEXT_RUNTIME_SCHEMA_VERSION,
+    generatedAt: new Date().toISOString(),
+    status: issueCount === 0 ? 'healthy' : 'issues',
+    counts: {
+      nodes: graph.nodes.length,
+      edges: graph.edges.length,
+      diagnostics: graph.diagnostics.length,
+      views: viewCount,
+      indexes: 3,
+      providers: runtimeConfig.providers.length,
+      tools: runtimeConfig.tools.length,
+      skills: runtimeConfig.skills.length
+    },
+    diagnosticsBySeverity,
+    capabilityGaps
+  }
+}

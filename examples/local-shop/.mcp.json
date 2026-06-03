@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "contextCompiler": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": [
+        "context",
+        "--cwd",
+        "${CLAUDE_PROJECT_DIR:-.}",
+        "mcp",
+        "start"
+      ]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+<!-- BEGIN context-compiler:codex-mcp -->
+[mcp_servers.context_compiler]
+command = "pnpm"
+args = ["context", "--cwd", ".", "mcp", "start"]
+cwd = "."
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+enabled = true
+<!-- END context-compiler:codex-mcp -->

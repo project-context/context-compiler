@@ -1,0 +1,11 @@
+{
+  "name": "@context-compiler/mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "context-mcp-server": "./src/index.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

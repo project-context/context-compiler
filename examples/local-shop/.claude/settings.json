@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__contextCompiler__query_runtime_provider",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "context doctor"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -3,26 +3,9 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "context": "./dist/index.js"
+    "context": "./src/index.ts"
   },
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --tsconfig tsconfig.build.json"
-  },
-  "dependencies": {
-    "@context-compiler/core": "workspace:*",
-    "@context-compiler/plugin-emitters": "workspace:*",
-    "@context-compiler/plugin-markdown": "workspace:*",
-    "@context-compiler/plugin-openapi": "workspace:*",
-    "@context-compiler/plugin-typescript": "workspace:*",
-    "commander": "^12.1.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.4.5"
+    ".": "./src/index.ts"
   }
 }

@@ -1,6 +1,37 @@
 {
-  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "baseUrl": ".",
+    "paths": {
+      "@context-compiler/core": ["packages/core/src/index.ts"],
+      "@context-compiler/cli": ["packages/cli/src/index.ts"],
+      "@context-compiler/distribution-local": ["packages/distributions/local/src/index.ts"],
+      "@context-compiler/mcp-server": ["packages/mcp/server/src/index.ts"],
+      "@context-compiler/ingest-local-files": ["packages/components/ingest/local-files/src/index.ts"],
+      "@context-compiler/parse-markdown": ["packages/components/parse/markdown/src/index.ts"],
+      "@context-compiler/parse-openapi": ["packages/components/parse/openapi/src/index.ts"],
+      "@context-compiler/normalize-markdown-doc": ["packages/components/normalize/markdown-doc/src/index.ts"],
+      "@context-compiler/normalize-openapi-contract": ["packages/components/normalize/openapi-contract/src/index.ts"],
+      "@context-compiler/classify-context-facts": ["packages/components/classify/context-facts/src/index.ts"],
+      "@context-compiler/enrich-inventory": ["packages/components/enrich/inventory/src/index.ts"],
+      "@context-compiler/enrich-symbol-index": ["packages/components/enrich/symbol-index/src/index.ts"],
+      "@context-compiler/link-default-rules": ["packages/components/link/default-rules/src/index.ts"],
+      "@context-compiler/validate-default-rules": ["packages/components/validate/default-rules/src/index.ts"],
+      "@context-compiler/govern-redaction": ["packages/components/govern/redaction/src/index.ts"],
+      "@context-compiler/compress-context-view": ["packages/components/compress/context-view/src/index.ts"],
+      "@context-compiler/compress-runtime-plan": ["packages/components/compress/runtime-plan/src/index.ts"],
+      "@context-compiler/compress-task-context": ["packages/components/compress/task-context/src/index.ts"],
+      "@context-compiler/emit-files": ["packages/components/emit/files/src/index.ts"]
+    }
+  },
   "include": ["packages/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
-  "exclude": ["node_modules", "dist", ".context"]
+  "exclude": ["node_modules", "dist"]
 }
-
