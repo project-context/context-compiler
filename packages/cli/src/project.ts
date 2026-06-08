@@ -2,32 +2,64 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import {
   applyManagedBlock,
+  applySubmittedGraphPatches,
+  installManagedAdapterRuntime,
   buildContextAgentInstallPlan,
   checkSourceFingerprints,
   compileContextProject,
   loadContextConfig,
   loadGraphFiles,
+  resolveAdapterRuntimeStatus,
   resolveOutputDir,
+  type AdapterRuntimeStatus,
+  type ContextExtensionAdapterKind,
+  type DocumentExtractorAdapterManifest,
+  type GraphAdapterManifest,
   type ContextAgentInstallFile,
   type ContextAgentInstallPlan,
   type ContextAgentInstallStatus,
   type ContextAgentTarget,
   type ContextGraph,
+  type ContextProgressEvent,
+  type ContextProgressReporter,
   type ContextProjectConfig,
   type ContextRuntimeConfig,
   type ContextSourceFingerprint
 } from '@context-compiler/core'
-import { createLocalDistribution } from '@context-compiler/distribution-local'
+import { createBuiltinLocalDistribution } from '@context-compiler/builtin-local'
+
+type RuntimeAdapterManifest = GraphAdapterManifest | DocumentExtractorAdapterManifest
+
+export interface ProjectAdapterRuntimeEntry {
+  kind: ContextExtensionAdapterKind
+  id: string
+  title: string
+  manifest: RuntimeAdapterManifest
+  status: AdapterRuntimeStatus
+}
+
+export interface ProjectAdapterRuntimeInstallResult {
+  entries: ProjectAdapterRuntimeEntry[]
+}
+
+export interface ProjectProgressOptions {
+  onProgress?: ContextProgressReporter
+}
 
 /** Compile the current workspace with the official local distribution. */
-export async function compileProject(cwd: string): Promise<{ graph: ContextGraph; config: ContextProjectConfig }> {
+export async function compileProject(cwd: string, options: ProjectProgressOptions = {}): Promise<{ graph: ContextGraph; config: ContextProjectConfig }> {
   const { config, diagnostics } = await loadContextConfig(cwd)
   const result = await compileContextProject({
     rootDir: config.workspace.rootDir,
     config,
-    distribution: createLocalDistribution(),
-    initialDiagnostics: diagnostics
+    distribution: createBuiltinLocalDistribution(),
+    initialDiagnostics: diagnostics,
+    onProgress: options.onProgress
   })
+  const errors = result.diagnostics.filter((diagnostic) => diagnostic.severity === 'error')
+  if (errors.length > 0) {
+    throw new Error(`Compile failed with ${errors.length} error diagnostic(s): ${errors[0].message}`)
+  }
   return { graph: result.graph, config: result.config }
 }
 
@@ -36,6 +68,12 @@ export async function readCompiledProject(cwd: string): Promise<{ graph: Context
   const { config } = await loadContextConfig(cwd)
   const graph = await loadGraphFiles(resolveOutputDir(config.workspace.rootDir, config.outputDir ?? '.context'))
   return { graph, config }
+}
+
+/** Apply submitted GraphPatch proposals through the Graph Kernel. */
+export async function applySubmittedPatchesProject(cwd: string, options: { dryRun?: boolean } = {}) {
+  const { config } = await loadContextConfig(cwd)
+  return applySubmittedGraphPatches({ config, dryRun: options.dryRun })
 }
 
 /** Write a minimal default context config. The local distribution plans pipelines from sources. */
@@ -55,6 +93,90 @@ export async function syncProject(cwd: string): Promise<number> {
     diagnostics: []
   }, null, 2))
   return config.sources.length
+}
+
+/** List adapter runtime status for the official local distribution in this project. */
+export async function listAdapterRuntimesProject(cwd: string): Promise<ProjectAdapterRuntimeEntry[]> {
+  const { config } = await loadContextConfig(cwd)
+  const outputDir = resolveOutputDir(config.workspace.rootDir, config.outputDir ?? '.context')
+  const distribution = createBuiltinLocalDistribution()
+  const manifests = collectAdapterManifests(distribution)
+  const entries: ProjectAdapterRuntimeEntry[] = []
+  for (const adapter of manifests) {
+    entries.push({
+      ...adapter,
+      status: await resolveAdapterRuntimeStatus({
+        adapterId: adapter.id,
+        outputDir,
+        requirement: adapter.manifest.runtime
+      })
+    })
+  }
+  return entries
+}
+
+/** Install managed adapter runtimes explicitly under `.context/extensions/<adapter-id>/runtime`. */
+export async function installAdapterRuntimesProject(
+  cwd: string,
+  adapterId?: string,
+  options: ProjectProgressOptions = {}
+): Promise<ProjectAdapterRuntimeInstallResult> {
+  const { config } = await loadContextConfig(cwd)
+  const outputDir = resolveOutputDir(config.workspace.rootDir, config.outputDir ?? '.context')
+  const distribution = createBuiltinLocalDistribution()
+  const selected = collectAdapterManifests(distribution).filter((adapter) => !adapterId || adapter.id === adapterId)
+  if (selected.length === 0) {
+    throw new Error(`Unknown adapter runtime: ${adapterId}`)
+  }
+
+  emitProjectProgress(options.onProgress, {
+    type: 'adapter.install.batch.started',
+    message: `Adapter runtime install batch started (${selected.length} adapter${selected.length === 1 ? '' : 's'})`,
+    metadata: { adapters: selected.length }
+  })
+  const entries: ProjectAdapterRuntimeEntry[] = []
+  for (const adapter of selected) {
+    emitProjectProgress(options.onProgress, {
+      type: 'adapter.install.adapter.started',
+      message: `Adapter runtime ${adapter.id} check started`,
+      adapterId: adapter.id,
+      metadata: { kind: adapter.kind, mode: adapter.manifest.runtime?.mode ?? 'not-required' }
+    })
+    const initial = await resolveAdapterRuntimeStatus({
+      adapterId: adapter.id,
+      outputDir,
+      requirement: adapter.manifest.runtime
+    })
+    if (adapter.manifest.runtime?.mode !== 'managed-runtime') {
+      emitProjectProgress(options.onProgress, {
+        type: 'adapter.install.skipped',
+        message: `Adapter runtime ${adapter.id} does not require managed install`,
+        adapterId: adapter.id,
+        metadata: { kind: adapter.kind, mode: adapter.manifest.runtime?.mode ?? 'not-required' }
+      })
+      entries.push({
+        ...adapter,
+        status: { ...initial, state: 'not-required', diagnostics: [] }
+      })
+      continue
+    }
+    const installed = await installManagedAdapterRuntime({
+      adapterId: adapter.id,
+      outputDir,
+      requirement: adapter.manifest.runtime,
+      onProgress: options.onProgress
+    })
+    entries.push({
+      ...adapter,
+      status: installed.status
+    })
+  }
+  emitProjectProgress(options.onProgress, {
+    type: 'adapter.install.batch.completed',
+    message: `Adapter runtime install batch completed (${entries.length} adapter${entries.length === 1 ? '' : 's'})`,
+    metadata: { adapters: entries.length }
+  })
+  return { entries }
 }
 
 /** Install repo-native Codex and Claude Code integration files. */
@@ -118,6 +240,34 @@ export function contextPath(cwd: string, config: ContextProjectConfig, ...parts:
 async function readRuntimeConfig(outputDir: string): Promise<ContextRuntimeConfig> {
   const content = await readOptionalFile(resolve(outputDir, 'runtime', 'runtime.config.json'))
   return content ? (JSON.parse(content) as ContextRuntimeConfig) : {}
+}
+
+function collectAdapterManifests(distribution: ReturnType<typeof createBuiltinLocalDistribution>): Array<{
+  kind: ContextExtensionAdapterKind
+  id: string
+  title: string
+  manifest: RuntimeAdapterManifest
+}> {
+  const manifests = [
+    ...(distribution.graphAdapters ?? []).map((adapter) => ({ kind: 'graph-adapter' as const, id: adapter.manifest.id, title: adapter.manifest.title, manifest: adapter.manifest })),
+    ...(distribution.documentExtractors ?? []).map((adapter) => ({ kind: 'document-extractor' as const, id: adapter.manifest.id, title: adapter.manifest.title, manifest: adapter.manifest }))
+  ]
+  const seen = new Set<string>()
+  return manifests.filter((entry) => {
+    if (seen.has(entry.id)) {
+      return false
+    }
+    seen.add(entry.id)
+    return true
+  })
+}
+
+function emitProjectProgress(reporter: ContextProgressReporter | undefined, event: Omit<ContextProgressEvent, 'schemaVersion' | 'timestamp'>): void {
+  reporter?.({
+    schemaVersion: 'context-progress-event.v1',
+    timestamp: new Date().toISOString(),
+    ...event
+  })
 }
 
 async function applyInstallFile(rootDir: string, file: ContextAgentInstallFile): Promise<void> {
@@ -187,7 +337,10 @@ async function writeInstalledAgentPlan(outputDir: string, plan: ContextAgentInst
 }
 
 async function updateManifestInstallStatus(outputDir: string, plan: ContextAgentInstallPlan): Promise<void> {
-  const path = join(outputDir, 'context-manifest.json')
+  await updateOneManifestInstallStatus(join(outputDir, 'manifest.json'), plan)
+}
+
+async function updateOneManifestInstallStatus(path: string, plan: ContextAgentInstallPlan): Promise<void> {
   const content = await readOptionalFile(path)
   if (!content) {
     return
@@ -239,9 +392,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 const INITIAL_CONFIG = {
   sources: [
-    { type: 'markdown', name: 'product-docs', path: './docs/product' },
-    { type: 'markdown', name: 'test-cases', path: './docs/tests' },
-    { type: 'openapi', name: 'api-spec', path: './openapi.yaml' },
-    { type: 'code', name: 'main-repo', path: './src' }
+    { name: 'workspace', path: './sources' }
   ]
 }

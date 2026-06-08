@@ -1,8 +1,0 @@
-{
-  "name": "@context-compiler/compress-context-view",
-  "version": "0.1.0",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  }
-}

@@ -85,9 +85,9 @@ describe('runtime trace and freshness', () => {
     expect(summary.freshness.status).toBe('fresh')
 
     const runtimeConfig = JSON.parse(await readFile(join(rootDir, '.context', 'runtime', 'runtime.config.json'), 'utf8')) as {
-      providers: Array<{ id: string; policy?: Record<string, unknown> }>
+      providers: Array<{ name: string; policy?: Record<string, unknown> }>
     }
-    expect(runtimeConfig.providers.find((provider) => provider.id === 'refund-metrics')?.policy).toMatchObject({
+    expect(runtimeConfig.providers.find((provider) => provider.name === 'refund-metrics')?.policy).toMatchObject({
       allowedAgents: ['codex', 'claude'],
       requiresApproval: true,
       timeoutMs: 2500,

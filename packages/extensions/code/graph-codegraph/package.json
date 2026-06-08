@@ -1,0 +1,12 @@
+{
+  "name": "@context-compiler/extension-graph-codegraph",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@context-compiler/core": "workspace:*",
+    "@colbymchenry/codegraph": "^0.9.0"
+  }
+}

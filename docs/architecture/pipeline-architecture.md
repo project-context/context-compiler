@@ -2,6 +2,8 @@
 
 Context Compiler is organized as a stable compiler kernel plus replaceable pipeline components. The kernel owns orchestration, schema contracts, execution state, diagnostics, and artifact persistence. It does not know how to parse Markdown, call Figma, classify requirements, link APIs to services, or emit agent packs.
 
+All major architecture work should align with the [Super Data Network goal](./super-data-network-goal.md): a package-first, evidence-traceable network where humans and agents start outside-in from materials, drill through L0/L1/L2/L3, use the Meta Layer for evidence, correction, revision, confidence, and permissions, and keep project context converging.
+
 The compiled output is a project-level `.context/` runtime workspace, not only a directory of Markdown files. A runtime workspace can contain static context artifacts, a project graph, JSON indexes, runtime providers, MCP tool metadata, project tool declarations, project skills, generated agent instructions, diagnostics, and cacheable runtime data.
 
 The runtime workspace is compiler-generated. Users provide project materials and source boundaries; Context Compiler infers which MCP tools, project tools, skills, plugins, providers, and agent integrations are useful for that project.

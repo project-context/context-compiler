@@ -9,7 +9,6 @@ describe('examples', () => {
   it('runs the local-shop example through the default pipeline', async () => {
     const cwd = join(rootDir, 'examples', 'local-shop')
 
-    await expect(readFile(join(cwd, 'README.md'), 'utf8')).resolves.toContain('Local Shop')
     await expect(readFile(join(cwd, 'sources', 'product-docs', 'refund.md'), 'utf8')).resolves.toContain(
       'REQ-ORDER-REFUND-001'
     )

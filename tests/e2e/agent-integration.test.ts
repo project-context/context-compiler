@@ -94,7 +94,7 @@ describe('agent integration command', () => {
       ])
     )
 
-    const manifest = JSON.parse(await readFile(join(rootDir, '.context', 'context-manifest.json'), 'utf8')) as {
+    const manifest = JSON.parse(await readFile(join(rootDir, '.context', 'manifest.json'), 'utf8')) as {
       runtime: { installStatus: Record<string, string> }
     }
     expect(manifest.runtime.installStatus).toMatchObject({ codex: 'installed', claude: 'installed' })

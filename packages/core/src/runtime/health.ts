@@ -16,9 +16,10 @@ export function buildContextRuntimeHealth(
   }
   const issueCount = diagnosticsBySeverity.warning + diagnosticsBySeverity.error
   const capabilityGaps = runtimeDiagnostics
-    .filter((diagnostic) => diagnostic.code === 'runtime.capability.not-generated')
+    .filter((diagnostic) => diagnostic.type === 'runtime.capability.not-generated')
     .map((diagnostic) => ({
-      id: diagnostic.code,
+      id: String(diagnostic.properties.capability ?? diagnostic.type),
+      diagnosticType: diagnostic.type,
       message: diagnostic.message,
       evidence: []
     }))
@@ -31,7 +32,7 @@ export function buildContextRuntimeHealth(
       edges: graph.edges.length,
       diagnostics: graph.diagnostics.length,
       views: viewCount,
-      indexes: 3,
+      indexes: Object.keys(indexes.manifest.files).length,
       providers: runtimeConfig.providers.length,
       tools: runtimeConfig.tools.length,
       skills: runtimeConfig.skills.length

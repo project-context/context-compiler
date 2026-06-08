@@ -40,11 +40,15 @@ export interface ComponentManifest {
 
 /** A human work source declared by a workspace config. */
 export interface SourceConfig {
-  type: string
+  type?: string
   name: string
   path: string
   parser?: string
   mediaType?: string
+  include?: string[]
+  exclude?: string[]
+  maxFileBytes?: number
+  includeDotfiles?: boolean
   [key: string]: unknown
 }
 
@@ -315,6 +319,1228 @@ export interface SourceRef {
   location?: SourceLocation
 }
 
+export type ContextSourceRoute = 'markdown' | 'code' | 'openapi' | 'inventory' | 'unsupported'
+export type ContextSourceInventoryStatus = 'routed' | 'inventory_only' | 'unsupported' | 'skipped'
+export type ContextSourceGroupKind =
+  | 'repository'
+  | 'doc_bundle'
+  | 'asset_bundle'
+  | 'analysis_bundle'
+  | 'domain_area'
+  | 'data_bundle'
+  | 'api_bundle'
+  | 'design_bundle'
+  | 'test_bundle'
+  | 'config_bundle'
+  | 'runtime_bundle'
+  | 'vendor_bundle'
+  | 'generated_bundle'
+  | 'archive'
+  | 'unknown'
+export type ContextSourceGroupBoundaryMode = 'expanded' | 'collapsed' | 'repository'
+
+export interface ContextSourceGroupCandidate {
+  path: string
+  title: string
+  fileCount: number
+  directoryCount: number
+  extensionCounts: Record<string, number>
+  markers: string[]
+  representativeFiles: string[]
+  suggestedKind: ContextSourceGroupKind
+  suggestedBoundaryMode: ContextSourceGroupBoundaryMode
+  confidence: number
+}
+
+export interface ContextSourceGroupingRequest {
+  schemaVersion: 'context-source-grouping-request.v1'
+  generatedAt: string
+  sources: Array<{
+    sourceName: string
+    root: string
+    candidates: ContextSourceGroupCandidate[]
+  }>
+}
+
+export interface ContextSourceGroupingDecision {
+  path: string
+  kind: ContextSourceGroupKind
+  boundaryMode: ContextSourceGroupBoundaryMode
+  title: string
+  summary: string
+  childrenPolicy?: 'promote_routed' | 'promote_none' | 'promote_all' | string
+  confidence: number
+}
+
+export interface ContextSourceGroupingDecisions {
+  schemaVersion: 'context-source-grouping-decisions.v1'
+  decisions: ContextSourceGroupingDecision[]
+  generatedAt?: string
+  agent?: string
+}
+
+export interface ContextSourceGroupRecord {
+  id: string
+  sourceName: string
+  path: string
+  title: string
+  kind: ContextSourceGroupKind
+  boundaryMode: ContextSourceGroupBoundaryMode
+  summary: string
+  childrenPolicy?: string
+  confidence: number
+  decisionSource: 'agent' | 'typed-source' | 'inferred'
+  sourceRef: SourceRef
+  metadata?: Record<string, unknown>
+}
+
+export type ContextPackageKind =
+  | 'product_docs'
+  | 'code_repository'
+  | 'analysis'
+  | 'design'
+  | 'data'
+  | 'runtime'
+  | 'asset'
+  | 'unknown'
+
+export type ContextPackageBuildUnitKind = 'repository' | 'graphrag_corpus' | 'api_contracts' | 'inventory'
+export type ContextPackageBuildUnitStandardKind = 'repository' | 'semantic_corpus' | 'api_contracts' | 'inventory'
+
+export interface ContextPackageBuildUnit {
+  id: string
+  kind: ContextPackageBuildUnitKind
+  standardKind: ContextPackageBuildUnitStandardKind
+  title: string
+  sourceGroupIds: string[]
+  adapterId: string
+  adapterSelection: ContextGraphAdapterRef
+  path?: string
+  summary?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ContextPackageRecord {
+  id: string
+  sourceName: string
+  path: string
+  title: string
+  kind: ContextPackageKind
+  summary: string
+  sourceGroupIds: string[]
+  buildUnits: ContextPackageBuildUnit[]
+  confidence: number
+  decisionSource: 'agent' | 'typed-source' | 'inferred'
+  sourceRef: SourceRef
+  metadata?: Record<string, unknown>
+}
+
+export interface ContextSourceInventoryEntry {
+  id: string
+  sourceName: string
+  root: string
+  path: string
+  uri: string
+  mediaType: string
+  sizeBytes: number
+  hash: string
+  route: ContextSourceRoute
+  status: ContextSourceInventoryStatus
+  unsupportedReason?: string
+  sourceRef: SourceRef
+  metadata?: Record<string, unknown>
+}
+
+export interface ContextSourceInventory {
+  schemaVersion: 'context-source-inventory.v1'
+  entries: ContextSourceInventoryEntry[]
+  packages?: ContextPackageRecord[]
+  groups?: ContextSourceGroupRecord[]
+  groupingRequest?: ContextSourceGroupingRequest
+  summary: {
+    roots: number
+    files: number
+    packages?: number
+    groups?: number
+    routed: number
+    inventoryOnly: number
+    unsupported: number
+    skipped: number
+  }
+}
+
+export interface ContextSourceTriageResult {
+  schemaVersion: 'context-source-triage.v1'
+  generatedAt: string
+  summary: {
+    files: number
+    routed: number
+    inventoryOnly: number
+    unsupported: number
+    skipped: number
+    adapterNeeded: number
+  }
+  entries: Array<{
+    sourceInventoryId: string
+    path: string
+    route: ContextSourceRoute
+    status: ContextSourceInventoryStatus
+    action: 'route' | 'inventory' | 'skip' | 'needs-adapter'
+    adapterNeeded?: boolean
+    unsupportedReason?: string
+    mediaType: string
+  }>
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextSourceGroupPlan {
+  schemaVersion: 'context-source-group-plan.v1'
+  generatedAt: string
+  groups: Array<{
+    id: string
+    sourceName: string
+    path: string
+    title: string
+    kind: ContextSourceGroupKind
+    boundaryMode: ContextSourceGroupBoundaryMode
+    summary: string
+    decisionSource: ContextSourceGroupRecord['decisionSource']
+    confidence: number
+    adapterPlan: ContextGraphAdapterRef[]
+  }>
+}
+
+export interface ContextWorkspaceGraphPlan {
+  schemaVersion: 'context-workspace-graph-plan.v1'
+  generatedAt: string
+  rootScopeId: string
+  scopeDAG: Array<{
+    scopeId: string
+    kind: ContextGraphScopeKind
+    parentScopeId?: string
+    rootNodeId?: string
+    sourceGroupId?: string
+    path?: string
+    title: string
+    boundaryMode?: ContextSourceGroupBoundaryMode
+    adapters: ContextGraphAdapterRef[]
+  }>
+  skeletonNodes: Array<Pick<ContextNode, 'id' | 'type' | 'name' | 'scopeId' | 'subgraphRef' | 'properties'>>
+  weakRelations: Array<Pick<ContextEdge, 'id' | 'from' | 'to' | 'type' | 'confidence' | 'evidence' | 'properties'>>
+}
+
+export interface ContextScopeBuildPlan {
+  schemaVersion: 'context-scope-build-plan.v1'
+  generatedAt: string
+  scopes: Array<{
+    scopeId: string
+    kind: ContextGraphScopeKind
+    parentScopeId?: string
+    sourceGroupId?: string
+    path?: string
+    boundaryMode?: ContextSourceGroupBoundaryMode
+    adapters: ContextGraphAdapterRef[]
+    inputs: string[]
+    outputs: string[]
+    cacheKey: string
+    freshness: ContextRuntimeFreshness
+  }>
+}
+
+export interface ContextAdapterPlan {
+  schemaVersion: 'context-adapter-plan.v1'
+  generatedAt: string
+  adapters: Array<ContextGraphAdapterRef & {
+    scopeIds: string[]
+    inputs: string[]
+    outputs: string[]
+  }>
+}
+
+export interface ContextSourceFirstPlans {
+  triage: ContextSourceTriageResult
+  sourceGroups: ContextSourceGroupPlan
+  workspaceGraph: ContextWorkspaceGraphPlan
+  scopeBuild: ContextScopeBuildPlan
+  adapterPlan: ContextAdapterPlan
+}
+
+export type ExpandPolicy = 'collapsed' | 'expand_on_demand' | 'expanded' | 'terminal'
+
+export interface GraphRevision {
+  schemaVersion: 'context-graph-revision.v1'
+  id: string
+  parentRevisionId?: string
+  createdAt: string
+  graphFingerprint: string
+  reason: string
+  status: 'seed' | 'materialized' | 'superseded'
+  patchIds: string[]
+  evidenceReportIds: string[]
+}
+
+export interface GraphPatchAuthor {
+  type: 'kernel' | 'agent' | 'adapter' | 'human'
+  name: string
+}
+
+export type GraphFactKind = 'node' | 'edge'
+export type GraphFactProvenanceStatus = 'seed' | 'proposed' | 'applied' | 'superseded' | 'rejected'
+
+export interface GraphFactProvenance {
+  schemaVersion: 'context-graph-fact-provenance.v1'
+  id: string
+  factKind: GraphFactKind
+  factId: string
+  revisionId: string
+  previousRevisionId?: string
+  patchId?: string
+  operation?: PatchOperation['op'] | 'compile_seed'
+  operationIndex?: number
+  author?: GraphPatchAuthor
+  evidenceReportIds: string[]
+  findingTypes: EvidenceFinding['type'][]
+  evidence: Evidence[]
+  sourceRefs: SourceRef[]
+  status: GraphFactProvenanceStatus
+  createdAt: string
+}
+
+export type PatchOperation =
+  | { op: 'add_node'; node: ContextNode }
+  | { op: 'update_node'; nodeId: string; name?: string; status?: ContextNodeStatus; confidence?: number; properties?: Record<string, unknown> }
+  | { op: 'add_edge'; edge: ContextEdge }
+  | { op: 'deprecate_node'; nodeId: string; supersededBy?: string; reason?: string }
+  | { op: 'deprecate_edge'; edgeId: string; supersededBy?: string; reason?: string }
+  | { op: 'restore_node_snapshot'; node: ContextNode; reason?: string }
+  | {
+      op: 'relabel_source_group'
+      nodeId: string
+      kind: ContextSourceGroupKind
+      title?: string
+      summary?: string
+      confidence?: number
+    }
+  | { op: 'reparent_node'; nodeId: string; parentScopeId?: string; sourceGroupId?: string }
+  | { op: 'link'; edge: ContextEdge }
+  | { op: 'rehome_proposal'; proposal: RehomeProposal }
+
+export interface GraphPatchApplicationResult {
+  schemaVersion: 'context-graph-patch-application-result.v1'
+  patchId: string
+  operationIndex: number
+  operation: PatchOperation['op']
+  factKind?: GraphFactKind
+  factId?: string
+  previousNode?: ContextNode
+  nextNode?: ContextNode
+  previousEdge?: ContextEdge
+  nextEdge?: ContextEdge
+}
+
+export interface GraphPatch {
+  schemaVersion: 'context-graph-patch.v1'
+  id: string
+  revisionId: string
+  author: GraphPatchAuthor
+  status: 'proposed' | 'applied' | 'rejected'
+  createdAt: string
+  appliedAt?: string
+  appliedRevisionId?: string
+  evidence: Evidence[]
+  evidenceReportIds?: string[]
+  operations: PatchOperation[]
+  applicationResults?: GraphPatchApplicationResult[]
+}
+
+export interface EvidenceNewSourceGroup {
+  id?: string
+  path: string
+  title: string
+  kind: ContextSourceGroupKind
+  boundaryMode: ContextSourceGroupBoundaryMode
+  summary: string
+  childrenPolicy?: string
+  confidence?: number
+}
+
+export interface EvidenceFinding {
+  type: 'misplaced_source' | 'relabel_group' | 'split_group' | 'merge_group' | 'link_groups' | 'confirm_fact'
+  nodeId?: string
+  targetGroupId?: string
+  affectedNodeIds?: string[]
+  relationType?: string
+  newGroup?: EvidenceNewSourceGroup
+  sourcePath?: string
+  suggestedKind?: ContextSourceGroupKind
+  suggestedPath?: string
+  confidence: number
+  evidence: Evidence[]
+  evidenceRefs?: SourceRef[]
+  properties?: Record<string, unknown>
+}
+
+export interface EvidenceReport {
+  schemaVersion: 'context-evidence-report.v1'
+  id: string
+  revisionId: string
+  scopeId: string
+  generatedAt: string
+  summary: string
+  findings: EvidenceFinding[]
+  proposedPatches: GraphPatch[]
+  rehomeProposals: RehomeProposal[]
+}
+
+export interface RehomeProposal {
+  schemaVersion: 'context-rehome-proposal.v1'
+  id: string
+  sourcePath: string
+  fromGroupId?: string
+  toGroupId?: string
+  suggestedPath?: string
+  action: 'move' | 'copy' | 'link' | 'keep'
+  reason: string
+  confidence: number
+  evidence: Evidence[]
+  status: 'proposed' | 'approved' | 'rejected' | 'applied'
+  createdAt: string
+}
+
+export type ContextCorrectionProposalKind = 'relabel' | 'split' | 'merge' | 'rehome' | 'confirm_relation' | 'reject_relation'
+export type ContextCorrectionProposalStatus = 'proposed' | 'approved' | 'rejected' | 'applied'
+export type ContextCorrectionAction = 'approve' | 'reject' | 'apply' | 'preview'
+export type ContextCorrectionRiskLevel = 'low' | 'medium' | 'high'
+export type ContextCorrectionConflictSeverity = 'warning' | 'error'
+export type ContextCorrectionConflictType = 'missing_target' | 'stale_revision' | 'patch_overlap' | 'already_applied' | 'missing_graph_patch'
+export type ContextCorrectionOperationLayer = 'source' | 'graph' | 'revision'
+export type ContextCorrectionOperationEffectKind =
+  | 'source_group_relabel'
+  | 'source_group_split'
+  | 'source_group_merge'
+  | 'source_path_rehome'
+  | 'graph_patch_operation'
+  | 'relation_confirm'
+  | 'relation_reject'
+
+export interface ContextCorrectionOperationEffect {
+  id: string
+  layer: ContextCorrectionOperationLayer
+  kind: ContextCorrectionOperationEffectKind
+  operation: ContextCorrectionProposalKind | PatchOperation['op']
+  targetKind: 'package' | 'source_group' | 'source_path' | 'node' | 'edge' | 'graph_patch'
+  targetId?: string
+  path?: string
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
+  summary: string
+  persistent: boolean
+}
+
+export interface ContextSourceCorrectionDecision {
+  schemaVersion: 'context-source-correction-decision.v1'
+  id: string
+  proposalId: string
+  kind: ContextCorrectionProposalKind
+  action: ContextCorrectionProposalKind
+  status: 'applied'
+  packageId?: string
+  sourceGroupId?: string
+  targetGroupId?: string
+  sourcePath?: string
+  targetPath?: string
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
+  createdAt: string
+  appliedRevisionId?: string
+}
+
+export interface ContextCorrectionRevisionSummary {
+  baseRevisionId?: string
+  newRevisionId?: string
+  appliedPatchIds: string[]
+  rejectedPatchIds: string[]
+  sourceDecisionIds: string[]
+}
+
+export interface ContextCorrectionOperationPlan {
+  schemaVersion: 'context-correction-operation-plan.v1'
+  id: string
+  proposalId: string
+  kind: ContextCorrectionProposalKind
+  effects: ContextCorrectionOperationEffect[]
+  sourceEffects: ContextCorrectionOperationEffect[]
+  graphEffects: ContextCorrectionOperationEffect[]
+  sourceDecisions: ContextSourceCorrectionDecision[]
+  graphPatchIds: string[]
+  persistent: boolean
+  requiresSourcePersistence: boolean
+  unsupportedSourcePersistence: boolean
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextCorrectionPreview {
+  schemaVersion: 'context-correction-preview.v1'
+  proposal: ContextCorrectionProposal
+  operationPlan: ContextCorrectionOperationPlan
+  graphPatch?: GraphPatch
+  revisionSummary?: ContextCorrectionRevisionSummary
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextCorrectionProposalSource {
+  kind: 'evidence_report' | 'graph_patch' | 'rehome_proposal' | 'status_overlay'
+  id: string
+}
+
+export interface ContextCorrectionImpact {
+  operationCount: number
+  affectedNodeIds: string[]
+  affectedEdgeIds: string[]
+  sourcePaths: string[]
+  creates: number
+  updates: number
+  deprecates: number
+  reparents: number
+  relabels: number
+  rehomes: number
+  riskLevel: ContextCorrectionRiskLevel
+}
+
+export interface ContextCorrectionConflict {
+  type: ContextCorrectionConflictType
+  severity: ContextCorrectionConflictSeverity
+  message: string
+  proposalId?: string
+  relatedProposalId?: string
+  patchId?: string
+  nodeId?: string
+  edgeId?: string
+  sourcePath?: string
+}
+
+export interface ContextCorrectionProposal {
+  schemaVersion: 'context-correction-proposal.v1'
+  id: string
+  dedupeKey: string
+  kind: ContextCorrectionProposalKind
+  status: ContextCorrectionProposalStatus
+  title: string
+  summary: string
+  packageId?: string
+  packagePath?: string
+  sourceGroupIds: string[]
+  affectedNodeIds: string[]
+  sourcePaths: string[]
+  confidence: number
+  evidence: Evidence[]
+  evidenceReportIds: string[]
+  graphPatchIds: string[]
+  rehomeProposalIds: string[]
+  derivedFrom: ContextCorrectionProposalSource[]
+  supersedesProposalIds: string[]
+  supersededByProposalId?: string
+  impact: ContextCorrectionImpact
+  operationPlan?: ContextCorrectionOperationPlan
+  conflicts: ContextCorrectionConflict[]
+  blocked: boolean
+  graphPatch?: GraphPatch
+  rehomeProposal?: RehomeProposal
+  actor?: GraphPatchAuthor
+  statusReason?: string
+  appliedRevisionId?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface ContextCorrectionProposalCounts {
+  total: number
+  proposed: number
+  approved: number
+  rejected: number
+  applied: number
+  blocked: number
+  conflicted: number
+  byKind: Partial<Record<ContextCorrectionProposalKind, number>>
+  byStatus: Partial<Record<ContextCorrectionProposalStatus, number>>
+  byRiskLevel: Partial<Record<ContextCorrectionRiskLevel, number>>
+}
+
+export interface ContextPackageCorrectionInbox {
+  schemaVersion: 'context-package-correction-inbox.v1'
+  package?: ContextPackageRecord
+  scope?: ContextGraphScope
+  proposals: ContextCorrectionProposal[]
+  counts: ContextCorrectionProposalCounts
+  nextRecommendedProposalId?: string
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextCorrectionActionResult {
+  schemaVersion: 'context-correction-action-result.v1'
+  action: ContextCorrectionAction
+  dryRun: boolean
+  submitted: boolean
+  written: boolean
+  proposal: ContextCorrectionProposal
+  graphPatch?: GraphPatch
+  preview?: ContextCorrectionPreview
+  operationPlan?: ContextCorrectionOperationPlan
+  revisionSummary?: ContextCorrectionRevisionSummary
+  path?: string
+  diagnostics: Diagnostic[]
+}
+
+export type GraphFactExplainMode = 'summary' | 'full'
+
+export interface GraphFactExplainBudget {
+  mode: GraphFactExplainMode
+  sources?: number
+  evidence?: number
+  relations?: number
+  provenance?: number
+}
+
+export interface GraphFactExplainOmitted {
+  sourceRefs: number
+  evidence: number
+  relations: number
+  provenance: number
+}
+
+export interface GraphFactExplanation {
+  schemaVersion: 'context-graph-fact-explanation.v1'
+  factId: string
+  factKind: GraphFactKind
+  node?: ContextNode
+  edge?: ContextEdge
+  relatedEdges: ContextEdge[]
+  relatedNodes: ContextNode[]
+  provenance: GraphFactProvenance[]
+  revisions: GraphRevision[]
+  patches: GraphPatch[]
+  evidenceReports: EvidenceReport[]
+  sourceRefs: SourceRef[]
+  budget: GraphFactExplainBudget
+  omitted: GraphFactExplainOmitted
+  diagnostics: Diagnostic[]
+}
+
+export interface GraphFactHistoryItem {
+  revisionId: string
+  previousRevisionId?: string
+  patchId?: string
+  operation?: PatchOperation['op'] | 'compile_seed'
+  operationIndex?: number
+  findingTypes: EvidenceFinding['type'][]
+  evidenceReportIds: string[]
+  sourceRefCount: number
+  status: GraphFactProvenanceStatus
+  createdAt: string
+}
+
+export interface GraphFactHistory {
+  schemaVersion: 'context-graph-fact-history.v1'
+  factId: string
+  factKind: GraphFactKind
+  timeline: GraphFactHistoryItem[]
+  revisions: GraphRevision[]
+  patches: GraphPatch[]
+  evidenceReports: EvidenceReport[]
+  diagnostics: Diagnostic[]
+}
+
+export interface PlanningCycle {
+  schemaVersion: 'context-planning-cycle.v1'
+  id: string
+  generatedAt: string
+  status: 'requested' | 'planned' | 'patched' | 'reconciled' | 'failed'
+  agent?: string
+  planningPackRef: string
+  requestRef?: string
+  patchIds: string[]
+  revisionIds: string[]
+  diagnostics: Diagnostic[]
+}
+
+export interface PlanningPackCandidate {
+  path: string
+  title: string
+  fileCount: number
+  routeCounts: Record<string, number>
+  extensionCounts: Record<string, number>
+  markers: string[]
+  representativeFiles: string[]
+  uncertainty: 'low' | 'medium' | 'high'
+}
+
+export interface PlanningPack {
+  schemaVersion: 'context-planning-pack.v1'
+  generatedAt: string
+  summary: {
+    files: number
+    routed: number
+    inventoryOnly: number
+    unsupported: number
+    skipped: number
+  }
+  budget: {
+    maxCandidates: number
+    maxRepresentativeFiles: number
+  }
+  candidates: PlanningPackCandidate[]
+  uncertaintyHotspots: Array<{ path: string; reason: string; confidence: number }>
+  drillDownTools: string[]
+}
+
+export type ContextGraphScopeKind = 'project' | 'package' | 'source_group' | 'file' | 'content'
+
+export type ContextGraphAdapterRole =
+  | 'inventory'
+  | 'parser'
+  | 'semantic-graph-builder'
+  | 'code-graph-builder'
+  | 'runtime-provider'
+  | 'indexer'
+
+export interface ContextGraphAdapterRef {
+  adapterId: string
+  role: ContextGraphAdapterRole
+  version?: string
+  artifactPath?: string
+  selectionSource?: 'default' | 'agent' | 'typed-source' | 'inferred' | 'configured' | 'registry' | string
+  selectionReason?: string
+  priority?: number
+  candidateAdapterIds?: string[]
+}
+
+export interface ContextGraphScopeStats {
+  nodes: number
+  edges: number
+  diagnostics: number
+  files: number
+  groups: number
+}
+
+export interface ContextGraphScope {
+  id: string
+  kind: ContextGraphScopeKind
+  parentScopeId?: string
+  rootNodeId?: string
+  packageId?: string
+  sourceGroupId?: string
+  path?: string
+  title: string
+  summary?: string
+  boundaryMode?: ContextSourceGroupBoundaryMode
+  adapterRefs: ContextGraphAdapterRef[]
+  stats: ContextGraphScopeStats
+  freshness: ContextRuntimeFreshness
+  indexRefs: Record<string, string>
+}
+
+export interface ContextGraphScopeManifest {
+  schemaVersion: 'context-graph-scopes.v1'
+  generatedAt: string
+  scopes: Array<ContextGraphScope & {
+    nodes: string
+    edges: string
+    summary: string
+  }>
+  adapters: GraphAdapterManifest[]
+}
+
+export type GraphDrillMode = 'summary' | 'full'
+export type GraphExpansionDirection = 'up' | 'down' | 'around'
+export type GraphExpansionTargetKind = 'scope' | 'node' | 'edge'
+
+export interface GraphDrillBudget {
+  mode: GraphDrillMode
+  nodes?: number
+  edges?: number
+  childScopes?: number
+  sourceRefs?: number
+  evidence?: number
+  depth?: number
+}
+
+export interface GraphDrillOmitted {
+  nodes: number
+  edges: number
+  childScopes: number
+  sourceRefs: number
+  evidence: number
+}
+
+export interface GraphDrillNextAction {
+  type: 'open_scope' | 'expand_target' | 'trace_source' | 'search_scope' | 'expand_package' | 'search_package' | 'review_corrections'
+  targetId: string
+  label: string
+  reason: string
+  scopeId?: string
+}
+
+export interface GraphScopeView {
+  schemaVersion: 'context-graph-scope-view.v1'
+  scope: ContextGraphScope
+  rootNode?: ContextNode
+  nodes: ContextNode[]
+  edges: ContextEdge[]
+  childScopes: ContextGraphScope[]
+  relatedScopes: ContextGraphScope[]
+  entrypoints: ContextNode[]
+  nextActions: GraphDrillNextAction[]
+  budget: GraphDrillBudget
+  omitted: GraphDrillOmitted
+  diagnostics: Diagnostic[]
+}
+
+export interface LayeredSourceTrace {
+  schemaVersion: 'context-layered-source-trace.v1'
+  factId: string
+  fact?: ContextNode
+  edge?: ContextEdge
+  sourceGroups: ContextNode[]
+  scopes: ContextGraphScope[]
+  files: ContextNode[]
+  contentNodes: ContextNode[]
+  sourceRefs: SourceRef[]
+  evidence: Evidence[]
+  budget: GraphDrillBudget
+  omitted: GraphDrillOmitted
+  diagnostics: Diagnostic[]
+}
+
+export interface GraphExpansionTarget {
+  id: string
+  kind: GraphExpansionTargetKind
+  node?: ContextNode
+  edge?: ContextEdge
+  scope?: ContextGraphScope
+}
+
+export interface GraphExpansion {
+  schemaVersion: 'context-graph-expansion.v1'
+  target: GraphExpansionTarget
+  targetKind: GraphExpansionTargetKind
+  scopePath: ContextGraphScope[]
+  facts: ContextNode[]
+  edges: ContextEdge[]
+  sourceTrace?: LayeredSourceTrace
+  nextActions: GraphDrillNextAction[]
+  budget: GraphDrillBudget
+  omitted: GraphDrillOmitted
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextBuildUnitView extends ContextPackageBuildUnit {
+  inventoryOnly: boolean
+  sourceGroups: ContextSourceGroupRecord[]
+}
+
+export interface ContextPackageStats {
+  nodes: number
+  edges: number
+  diagnostics: number
+  files: number
+  groups: number
+  buildUnits: number
+  inventoryOnlyBuildUnits: number
+}
+
+export interface ContextPackageCorrectionCounts {
+  evidenceReports: number
+  findings: number
+  proposedPatches: number
+  rehomeProposals: number
+  byFindingType: Partial<Record<EvidenceFinding['type'], number>>
+}
+
+export interface ContextPackageCorrectionSummary {
+  counts: ContextPackageCorrectionCounts
+  proposalCounts: ContextCorrectionProposalCounts
+  pendingProposalIds: string[]
+  approvedProposalIds: string[]
+  appliedProposalIds: string[]
+  rejectedProposalIds: string[]
+  nextRecommendedProposalId?: string
+  evidenceReports: EvidenceReport[]
+  proposedPatches: GraphPatch[]
+  rehomeProposals: RehomeProposal[]
+}
+
+export interface ContextPackageSummary {
+  package: ContextPackageRecord
+  scope?: ContextGraphScope
+  buildUnits: ContextBuildUnitView[]
+  adapterSelections: ContextGraphAdapterRef[]
+  sourceGroups: ContextSourceGroupRecord[]
+  stats: ContextPackageStats
+  corrections: ContextPackageCorrectionSummary
+  nextActions: GraphDrillNextAction[]
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextPackageList {
+  schemaVersion: 'context-package-list.v1'
+  packages: ContextPackageSummary[]
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextPackageView {
+  schemaVersion: 'context-package-view.v1'
+  package: ContextPackageRecord
+  scope?: ContextGraphScope
+  buildUnits: ContextBuildUnitView[]
+  adapterSelections: ContextGraphAdapterRef[]
+  sourceGroups: ContextSourceGroupRecord[]
+  stats: ContextPackageStats
+  corrections: ContextPackageCorrectionSummary
+  nextActions: GraphDrillNextAction[]
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextPackageExpansion {
+  schemaVersion: 'context-package-expansion.v1'
+  mode: GraphDrillMode
+  package: ContextPackageRecord
+  scope?: ContextGraphScope
+  buildUnits: ContextBuildUnitView[]
+  adapterSelections: ContextGraphAdapterRef[]
+  sourceGroups: ContextSourceGroupRecord[]
+  childScopes: ContextGraphScope[]
+  files: ContextNode[]
+  facts: ContextNode[]
+  edges: ContextEdge[]
+  corrections: ContextPackageCorrectionSummary
+  nextActions: GraphDrillNextAction[]
+  diagnostics: Diagnostic[]
+}
+
+export interface ContextPackageSearch {
+  schemaVersion: 'context-package-search.v1'
+  query: string
+  package?: ContextPackageRecord
+  scope?: ContextGraphScope
+  engine: 'sqlite' | 'sqlite-empty-fallback' | 'memory-fallback'
+  indexPath: string
+  results: ContextNode[]
+  diagnostics: Diagnostic[]
+}
+
+export interface GraphViewerStyleHints {
+  color: string
+  shape: string
+  size: number
+  lineStyle?: string
+}
+
+export interface GraphViewerRawRef {
+  factKind: 'node' | 'edge' | 'scope'
+  factId: string
+  scopeId?: string
+}
+
+export interface GraphViewerElement {
+  id: string
+  kind: 'node' | 'edge'
+  type: string
+  label: string
+  scopeId?: string
+  status?: string
+  source?: string
+  target?: string
+  metrics: Record<string, number>
+  styleHints: GraphViewerStyleHints
+  rawRef: GraphViewerRawRef
+  data?: Record<string, unknown>
+}
+
+export interface GraphViewerOverview {
+  schemaVersion: 'context-graph-viewer-overview.v1'
+  scopeId?: string
+  elements: {
+    nodes: GraphViewerElement[]
+    edges: GraphViewerElement[]
+  }
+  stats: {
+    totalNodes: number
+    totalEdges: number
+    visibleNodes: number
+    visibleEdges: number
+  }
+  budget: GraphDrillBudget
+  omitted: GraphDrillOmitted
+  diagnostics: Diagnostic[]
+}
+
+export interface GraphViewerInspectResult {
+  schemaVersion: 'context-graph-viewer-inspect.v1'
+  targetId: string
+  targetKind: GraphExpansionTargetKind
+  target?: GraphViewerElement
+  expansion?: GraphExpansion
+  trace?: LayeredSourceTrace
+  explanation?: GraphFactExplanation
+  diagnostics: Diagnostic[]
+}
+
+export interface GraphViewerSearchResult {
+  schemaVersion: 'context-graph-viewer-search.v1'
+  engine: 'sqlite' | 'sqlite-empty-fallback' | 'memory-fallback'
+  indexPath: string
+  scopeId?: string
+  results: GraphViewerElement[]
+  diagnostics: Diagnostic[]
+}
+
+export type AdapterRuntimeMode = 'dependency' | 'managed-runtime' | 'configured-runtime'
+export type AdapterRuntimeEcosystem = 'node' | 'python' | 'custom'
+export type AdapterRuntimeState = 'available' | 'installed' | 'missing' | 'install-failed' | 'not-required'
+
+export interface AdapterRuntimeCommand {
+  command: string
+  args: string[]
+  cwd?: string
+  env?: Record<string, string>
+}
+
+export interface AdapterRuntimePythonRequirement {
+  candidates?: string[]
+  minVersion?: string
+  maxVersionExclusive?: string
+}
+
+export interface AdapterRuntimeRequirement {
+  mode: AdapterRuntimeMode
+  ecosystem?: AdapterRuntimeEcosystem
+  packageName?: string
+  version?: string
+  executable?: string
+  runtimeDir?: string
+  python?: AdapterRuntimePythonRequirement
+  installCommands?: AdapterRuntimeCommand[]
+  configuredEnvVar?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface AdapterRuntimeInstallPlan {
+  schemaVersion: 'context-adapter-runtime-install-plan.v1'
+  adapterId: string
+  mode: 'managed-runtime'
+  ecosystem: AdapterRuntimeEcosystem
+  packageName?: string
+  runtimeDir: string
+  markerPath: string
+  commands: AdapterRuntimeCommand[]
+  metadata?: Record<string, unknown>
+}
+
+export interface AdapterRuntimeStatus {
+  schemaVersion: 'context-adapter-runtime-status.v1'
+  adapterId: string
+  mode: AdapterRuntimeMode
+  state: AdapterRuntimeState
+  requirement: AdapterRuntimeRequirement
+  packageName?: string
+  runtimeDir?: string
+  markerPath?: string
+  installedAt?: string
+  installPlan?: AdapterRuntimeInstallPlan
+  diagnostics: Diagnostic[]
+  metadata?: Record<string, unknown>
+}
+
+export type ContextProgressStream = 'stdout' | 'stderr'
+
+export interface ContextProgressInfo {
+  phaseId?: string
+  phaseLabel?: string
+  unitId?: string
+  unitLabel?: string
+  percent?: number
+  current?: number
+  total?: number
+  indeterminate?: boolean
+}
+
+export interface ContextProgressEvent {
+  schemaVersion: 'context-progress-event.v1'
+  type: string
+  message: string
+  timestamp: string
+  stage?: PipelineStage
+  componentId?: string
+  adapterId?: string
+  command?: AdapterRuntimeCommand
+  stream?: ContextProgressStream
+  progress?: ContextProgressInfo
+  metadata?: Record<string, unknown>
+}
+
+export type ContextProgressReporter = (event: ContextProgressEvent) => void
+
+export interface GraphAdapterManifest {
+  id: string
+  title: string
+  version: string
+  scopeKinds: ContextGraphScopeKind[]
+  sourceGroupKinds?: ContextSourceGroupKind[]
+  inputs: string[]
+  outputs: string[]
+  deterministic: boolean
+  requiresNetwork: boolean
+  stability: ComponentStability
+  externalProjects?: string[]
+  runtime?: AdapterRuntimeRequirement
+  metadata?: Record<string, unknown>
+}
+
+export interface GraphBuildInput {
+  scope: ContextGraphScope
+  graph: ContextGraph
+  scopeGraph?: ContextGraph
+  sourceInventory?: ContextSourceInventory
+  sourceEntries?: ContextSourceInventoryEntry[]
+  rawArtifacts?: RawArtifact[]
+  parsedArtifacts?: ParsedArtifact[]
+  normalizedRecords?: NormalizedRecord[]
+  config?: ContextProjectConfig
+  rootDir?: string
+  outputDir?: string
+  artifactDir?: string
+  adapterConfig?: Record<string, unknown>
+  artifacts?: Record<string, unknown>
+}
+
+export interface GraphAdapterArtifact {
+  id: string
+  path: string
+  mediaType: string
+  description?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ContextGraphIndexHint {
+  nodeId?: string
+  edgeId?: string
+  scopeId?: string
+  index: string
+  text?: string
+  metadata?: Record<string, unknown>
+}
+
+export type GraphBuildNodePatch = Omit<ContextNode, 'type'> & { type: string }
+
+export interface GraphBuildResult {
+  nodes: GraphBuildNodePatch[]
+  edges: ContextEdge[]
+  diagnostics?: Diagnostic[]
+  indexHints?: ContextGraphIndexHint[]
+  artifacts?: GraphAdapterArtifact[]
+  adapterRefs?: ContextGraphAdapterRef[]
+}
+
+export type ContextExtensionCategory = 'document' | 'knowledge' | 'code' | 'runtime' | 'source' | 'custom'
+export type ContextExtensionAdapterKind = 'source-parser' | 'document-extractor' | 'graph-adapter'
+
+export interface SourceParserAdapterManifest {
+  id: string
+  title: string
+  version: string
+  mediaTypes: string[]
+  routes: ContextSourceRoute[]
+  outputs: string[]
+  deterministic: boolean
+  requiresNetwork: boolean
+  stability: ComponentStability
+  externalProjects?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface DocumentExtractorAdapterManifest {
+  id: string
+  title: string
+  version: string
+  mediaTypes: string[]
+  outputs: string[]
+  deterministic: boolean
+  requiresNetwork: boolean
+  stability: ComponentStability
+  externalProjects?: string[]
+  runtime?: AdapterRuntimeRequirement
+  metadata?: Record<string, unknown>
+}
+
+export type ContextExtensionAdapterManifest = SourceParserAdapterManifest | DocumentExtractorAdapterManifest | GraphAdapterManifest
+
+export interface ContextExtensionAdapterBinding {
+  kind: ContextExtensionAdapterKind
+  manifest: ContextExtensionAdapterManifest
+}
+
+export interface ContextExtensionManifest {
+  schemaVersion: 'context-extension.v1'
+  id: string
+  title: string
+  version: string
+  category: ContextExtensionCategory
+  stability: ComponentStability
+  adapters: ContextExtensionAdapterBinding[]
+  externalProjects?: string[]
+  metadata?: Record<string, unknown>
+}
+
+export interface SourceParserInput {
+  entry: ContextSourceInventoryEntry
+  bytes?: Uint8Array
+  text?: string
+  rootDir?: string
+  outputDir?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface SourceParserResult {
+  rawArtifacts?: RawArtifact[]
+  parsedArtifacts?: ParsedArtifact[]
+  diagnostics?: Diagnostic[]
+  artifacts?: GraphAdapterArtifact[]
+  metadata?: Record<string, unknown>
+}
+
+export interface DocumentExtractionInput {
+  entry: ContextSourceInventoryEntry
+  bytes?: Uint8Array
+  text?: string
+  scope?: ContextGraphScope
+  rootDir?: string
+  outputDir?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface DocumentExtractionResult {
+  parsedArtifacts?: ParsedArtifact[]
+  normalizedRecords?: NormalizedRecord[]
+  diagnostics?: Diagnostic[]
+  artifacts?: GraphAdapterArtifact[]
+  metadata?: Record<string, unknown>
+}
+
+export interface SourceParserAdapter {
+  manifest: SourceParserAdapterManifest
+  parse(input: SourceParserInput): Promise<SourceParserResult>
+}
+
+export interface DocumentExtractorAdapter {
+  manifest: DocumentExtractorAdapterManifest
+  extract(input: DocumentExtractionInput): Promise<DocumentExtractionResult>
+}
+
+export interface GraphAdapter {
+  manifest: GraphAdapterManifest
+  build(input: GraphBuildInput): Promise<GraphBuildResult>
+}
+
 /** Raw data collected by ingest components. */
 export interface RawArtifact {
   id: string
@@ -350,6 +1576,7 @@ export interface NormalizedRecord {
 /** Supported typed property graph node types. */
 export type ContextNodeType =
   | 'Source'
+  | 'SourceGroup'
   | 'SourceSnapshot'
   | 'Document'
   | 'Section'
@@ -433,7 +1660,16 @@ export type ContextNodeType =
   | 'Project'
   | 'Domain'
 
-export type ContextNodeStatus = 'active' | 'draft' | 'deprecated' | 'conflicting' | 'unknown'
+export type ContextNodeStatus =
+  | 'hypothesis'
+  | 'provisional'
+  | 'confirmed'
+  | 'active'
+  | 'draft'
+  | 'deprecated'
+  | 'superseded'
+  | 'conflicting'
+  | 'unknown'
 
 export type ContextAuthority = 'source_of_truth' | 'approved' | 'reference' | 'draft' | 'inferred'
 
@@ -459,6 +1695,9 @@ export interface ContextNode {
   id: string
   type: ContextNodeType
   name: string
+  scopeId?: string
+  subgraphRef?: string
+  parentScopeId?: string
   domain?: string
   module?: string
   sourceRefs: SourceRef[]
@@ -467,6 +1706,7 @@ export interface ContextNode {
   confidence: number
   tags: string[]
   properties: Record<string, unknown>
+  provenance: GraphFactProvenance[]
   createdAt?: string
   updatedAt?: string
   fingerprint: string
@@ -478,11 +1718,13 @@ export interface ContextEdge {
   from: string
   to: string
   type: string
+  scopeId?: string
   confidence: number
   evidence: Evidence[]
   linker: string
   status: ContextEdgeStatus
   properties: Record<string, unknown>
+  provenance: GraphFactProvenance[]
   createdAt?: string
   updatedAt?: string
   fingerprint: string
@@ -544,6 +1786,7 @@ export interface ContextIndexManifest {
     runtime: string
     fts: string
     fingerprints: string
+    scopes: string
   }
   counts: {
     graph: number
@@ -554,6 +1797,7 @@ export interface ContextIndexManifest {
     runtime: number
     fts: number
     fingerprints: number
+    scopes: number
   }
 }
 
@@ -579,7 +1823,11 @@ export interface ContextRuntimeManifest {
     nodes: string
     edges: string
     subgraphs: string
+    scopes: string
     partitions: string
+    revisions: string
+    patches: string
+    evidenceReports: string
   }
   indexes: {
     graph: string
@@ -590,12 +1838,38 @@ export interface ContextRuntimeManifest {
     runtime: string
     fts: string
     fingerprints: string
+    scopes: string
+  }
+  plans: {
+    planningPack: string
+    planningCycles: string
+    sourceTriage: string
+    sourceGroups: string
+    workspaceGraph: string
+    scopeBuild: string
+    adapterPlan: string
+  }
+  proposals: {
+    rehome: string
+    corrections: string
   }
   artifacts: {
     projectBrief: string
     domains: string
     tasks: string
     reports: string
+  }
+  sources: {
+    inventory: string
+    routes: string
+    unsupported: string
+    summary: string
+    groups: string
+    packages: string
+    buildUnits: string
+    groupingRequest: string
+    groupingDecisions: string
+    correctionDecisions: string
   }
   packs: Array<{ id: string; kind: ContextPack['kind']; view?: string; task?: string }>
   runtime: {
@@ -642,7 +1916,7 @@ export interface ContextRuntimeHealth {
     skills: number
   }
   diagnosticsBySeverity: Record<DiagnosticSeverity, number>
-  capabilityGaps?: Array<{ id: string; message: string; evidence: ContextRuntimeEvidence[] }>
+  capabilityGaps?: Array<{ id: string; diagnosticType?: string; message: string; evidence: ContextRuntimeEvidence[] }>
 }
 
 /** Mutable state exchanged between replaceable pipeline components. */
@@ -666,6 +1940,7 @@ export interface PipelineExecutionContext {
   config: ContextProjectConfig
   pipelineId: string
   stage: PipelineStage
+  onProgress?: ContextProgressReporter
 }
 
 /** Partial state mutation returned by a component. */
@@ -687,7 +1962,12 @@ export interface ContextDistribution {
   version: string
   components: ContextComponent[]
   pipelines: Record<string, PipelineDefinition>
+  sourceParsers?: SourceParserAdapter[]
+  documentExtractors?: DocumentExtractorAdapter[]
+  graphAdapters?: GraphAdapter[]
+  extensions?: ContextExtensionManifest[]
   planPipeline?(config: ContextProjectConfig, pipelineId: string): PipelineDefinition | undefined
+  metadata?: Record<string, unknown>
 }
 
 /** Options for compiling a workspace through a configured distribution. */
@@ -698,6 +1978,7 @@ export interface CompileProjectOptions {
   pipelineId?: string
   outputDir?: string
   initialDiagnostics?: Diagnostic[]
+  onProgress?: ContextProgressReporter
 }
 
 /** Compile result returned by the public SDK. */

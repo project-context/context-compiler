@@ -12,6 +12,8 @@ The goal is not to replace product managers, designers, developers, testers, or 
 
 The goal is to reduce repeated context explanation and help AI agents work inside a real software project with the right background, the right constraints, the right source of truth, and project-specific runtime query tools.
 
+The long-term goal is the [Super Data Network](./docs/architecture/super-data-network-goal.md): a package-first, evidence-traceable, human-agent co-query network with a 4-layer query interface plus evidence, correction, revision, and permission control layers.
+
 ---
 
 ## Current Architecture
@@ -47,6 +49,7 @@ Official implementations are ordinary components. The current `@context-compiler
 See:
 
 * [Pipeline Architecture](./docs/architecture/pipeline-architecture.md)
+* [Super Data Network Goal](./docs/architecture/super-data-network-goal.md)
 * [Component API](./docs/sdk/component-api.md)
 * [Pipeline Examples](./docs/examples/pipelines.md)
 * [Project Structure](./docs/architecture/project-structure.md)

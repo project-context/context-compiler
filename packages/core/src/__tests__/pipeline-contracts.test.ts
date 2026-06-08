@@ -140,7 +140,7 @@ describe('pipeline component architecture', () => {
                 kind: 'raw',
                 mediaType: 'text/plain',
                 content: 'hello',
-                source: { uri: 'memory://doc', type: 'memory' }
+                source: { sourceId: 'memory:doc', uri: 'memory://doc', title: 'memory' }
               }
             ]
           }
@@ -192,6 +192,11 @@ describe('pipeline component architecture', () => {
 
     expect(events).toEqual(['ingest', 'parse:1'])
     expect(result.state.rawArtifacts).toHaveLength(1)
-    expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['test.info'])
+    expect(result.diagnostics.map((diagnostic) => diagnostic.type)).toEqual(['test.info'])
+    expect(result.diagnostics[0]).toMatchObject({
+      relatedNodes: [],
+      evidence: [],
+      properties: { code: 'test.info' }
+    })
   })
 })

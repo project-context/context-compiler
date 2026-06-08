@@ -1,0 +1,30 @@
+{
+  "name": "@context-compiler/builtin-local",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@context-compiler/builtin-classify-context-facts": "workspace:*",
+    "@context-compiler/builtin-compress-context-view": "workspace:*",
+    "@context-compiler/builtin-compress-runtime-plan": "workspace:*",
+    "@context-compiler/builtin-compress-task-context": "workspace:*",
+    "@context-compiler/builtin-emit-files": "workspace:*",
+    "@context-compiler/builtin-enrich-inventory": "workspace:*",
+    "@context-compiler/builtin-enrich-scope-adapters": "workspace:*",
+    "@context-compiler/builtin-govern-redaction": "workspace:*",
+    "@context-compiler/builtin-ingest-local-files": "workspace:*",
+    "@context-compiler/builtin-link-default-rules": "workspace:*",
+    "@context-compiler/builtin-normalize-markdown-doc": "workspace:*",
+    "@context-compiler/builtin-normalize-openapi-contract": "workspace:*",
+    "@context-compiler/builtin-parse-document-extractors": "workspace:*",
+    "@context-compiler/builtin-parse-markdown": "workspace:*",
+    "@context-compiler/builtin-parse-openapi": "workspace:*",
+    "@context-compiler/builtin-validate-default-rules": "workspace:*",
+    "@context-compiler/core": "workspace:*",
+    "@context-compiler/extension-graph-codegraph": "workspace:*",
+    "@context-compiler/extension-graph-microsoft-graphrag": "workspace:*",
+    "@context-compiler/extension-parser-docling": "workspace:*"
+  }
+}

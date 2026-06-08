@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -74,6 +74,21 @@ paths:
 }
 
 describe('context CLI', () => {
+  it('cleans the generated .context workspace idempotently', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'context-compiler-clean-'))
+    await mkdir(join(rootDir, '.context', 'graph'), { recursive: true })
+    await writeFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), '{"id":"stale"}\n')
+
+    const clean = await runCli(['clean'], { cwd: rootDir })
+    expect(clean.exitCode).toBe(0)
+    expect(clean.stdout).toContain('Removed .context')
+    await expect(access(join(rootDir, '.context'))).rejects.toThrow()
+
+    const cleanAgain = await runCli(['clean'], { cwd: rootDir })
+    expect(cleanAgain.exitCode).toBe(0)
+    expect(cleanAgain.stdout).toContain('No .context directory to clean')
+  })
+
   it('initializes, compiles, queries, views, explains, and creates task context', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-compiler-cli-'))
     const init = await runCli(['init'], { cwd: rootDir })
@@ -84,9 +99,18 @@ describe('context CLI', () => {
     await expect(readFile(join(rootDir, 'context.config.json'), 'utf8')).resolves.not.toContain('"roles"')
 
     await writeProject(rootDir)
-    const compile = await runCli(['compile'], { cwd: rootDir })
+    const compileChunks: string[] = []
+    const compile = await runCli(['compile'], {
+      cwd: rootDir,
+      progress: true,
+      stream: true,
+      stdout: (chunk) => compileChunks.push(chunk)
+    })
     expect(compile.exitCode).toBe(0)
     expect(compile.stdout).toContain('Compiled')
+    expect(compileChunks.join('')).toContain('[compile] started')
+    expect(compileChunks.join('')).toContain('[compile] stage ingest started')
+    expect(compileChunks.join('')).toContain('[compile] component ingest.local-files started')
 
     const view = await runCli(['view', 'implementation'], { cwd: rootDir })
     expect(view.stdout).toContain('Implementation Context')
@@ -97,7 +121,7 @@ describe('context CLI', () => {
 
     const explain = await runCli(['explain', 'REQ-ORDER-REFUND-001'], { cwd: rootDir })
     expect(explain.stdout).toContain('feishu://doc/refund')
-    expect(explain.stdout).toContain('relates_to')
+    expect(explain.stdout).toContain('exposed_as')
 
     const task = await runCli(['task', '支持订单部分退款', '--focus', 'implementation', '--module', 'refund'], {
       cwd: rootDir

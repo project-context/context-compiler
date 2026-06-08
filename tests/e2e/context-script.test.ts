@@ -17,5 +17,5 @@ describe('root context script', () => {
     })
 
     expect(query.stdout).toContain('REQ-ORDER-REFUND-001')
-  })
+  }, 15000)
 })

@@ -1,6 +1,11 @@
 /** Options for running the CLI in tests or as a binary. */
 export interface RunCliOptions {
   cwd?: string
+  progress?: boolean
+  progressStyle?: 'log' | 'bar'
+  stream?: boolean
+  stdout?: (chunk: string) => void
+  stderr?: (chunk: string) => void
 }
 
 /** Buffered CLI result returned by `runCli`. */
@@ -28,9 +33,15 @@ export function createRuntime(options: RunCliOptions = {}): CliRuntime {
     exitCode: 0,
     writeOut(message) {
       stdout += message
+      if (options.stream) {
+        options.stdout?.(message)
+      }
     },
     writeErr(message) {
       stderr += message
+      if (options.stream) {
+        options.stderr?.(message)
+      }
     },
     result() {
       return { stdout, stderr, exitCode: this.exitCode }

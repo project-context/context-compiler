@@ -1,0 +1,8 @@
+{
+  "name": "@context-compiler/builtin-normalize-markdown-doc",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -18,14 +18,18 @@ export function createDiagnostic(input: CreateDiagnosticInput): Diagnostic {
   const target = input.nodeId ?? input.source?.uri ?? input.message
   return {
     id: input.id ?? `DIAG-${slug(input.code)}-${slug(target).slice(0, 80)}`,
+    type: input.code,
     severity: input.severity,
-    code: input.code,
     message: input.message,
-    nodeId: input.nodeId,
-    source: input.source,
-    trace: input.trace,
-    remediation: input.remediation,
-    metadata: input.metadata ?? {}
+    relatedNodes: input.nodeId ? [input.nodeId] : [],
+    evidence: input.source ? [{ type: 'manual', description: input.message, sourceRefs: [input.source] }] : [],
+    suggestedAction: input.remediation,
+    createdAt: new Date().toISOString(),
+    properties: {
+      code: input.code,
+      ...(input.trace ? { trace: input.trace } : {}),
+      ...(input.metadata ?? {})
+    }
   }
 }
 

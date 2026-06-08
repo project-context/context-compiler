@@ -1,0 +1,11 @@
+{
+  "name": "@context-compiler/extension-parser-docling",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@context-compiler/core": "workspace:*"
+  }
+}

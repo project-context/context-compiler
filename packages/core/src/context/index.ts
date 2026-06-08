@@ -1,5 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import {
+  nodeContent,
+  nodeStringProperty,
+  primarySourceRef,
+  sourceUri
+} from '../graph/model.js'
 import type { ContextEdge, ContextGraph, ContextNode, ContextNodeType, ContextProjectConfig, Diagnostic } from '../contracts/index.js'
 
 export type ContextFocus = 'project' | 'implementation' | 'review' | 'testing' | 'product' | 'design'
@@ -38,37 +44,27 @@ const DEFAULT_CONTEXT_VIEWS: ContextViewDefinition[] = [
   {
     name: 'project',
     title: 'Project Context',
-    include: [
-      'project',
-      'domain',
-      'repository',
-      'module',
-      'package',
-      'requirement',
-      'business_rule',
-      'decision',
-      'risk',
-      'diagnostic'
-    ],
+    include: ['Project', 'Domain', 'SourceGroup', 'Repository', 'Module', 'Package', 'Requirement', 'BusinessRule', 'Decision', 'Risk', 'Diagnostic'],
     diagnostics: true
   },
   {
     name: 'implementation',
     title: 'Implementation Context',
     include: [
-      'requirement',
-      'acceptance_criteria',
-      'api_contract',
-      'route',
-      'code_symbol',
-      'module',
-      'file',
-      'config_item',
-      'dependency',
-      'entry_point',
-      'test_case',
-      'bug',
-      'risk'
+      'Requirement',
+      'SourceGroup',
+      'AcceptanceCriteria',
+      'APIEndpoint',
+      'Route',
+      'CodeSymbol',
+      'Module',
+      'File',
+      'ConfigItem',
+      'Dependency',
+      'EntryPoint',
+      'TestCase',
+      'Incident',
+      'Risk'
     ]
   },
   {
@@ -80,20 +76,20 @@ const DEFAULT_CONTEXT_VIEWS: ContextViewDefinition[] = [
   {
     name: 'testing',
     title: 'Testing Context',
-    include: ['requirement', 'acceptance_criteria', 'api_contract', 'test_case', 'bug', 'risk', 'code_symbol'],
+    include: ['Requirement', 'AcceptanceCriteria', 'APIEndpoint', 'TestCase', 'Incident', 'Risk', 'CodeSymbol'],
     diagnostics: true
   },
   {
     name: 'product',
     title: 'Product Context',
-    detect: ['requirement', 'business_rule', 'acceptance_criteria', 'decision', 'risk'],
-    include: ['requirement', 'business_rule', 'acceptance_criteria', 'decision', 'risk']
+    detect: ['Requirement', 'BusinessRule', 'AcceptanceCriteria', 'Decision', 'Risk'],
+    include: ['Requirement', 'SourceGroup', 'BusinessRule', 'AcceptanceCriteria', 'Decision', 'Risk']
   },
   {
     name: 'design',
     title: 'Design Context',
-    detect: ['design_spec', 'page', 'ui_component'],
-    include: ['requirement', 'design_spec', 'page', 'ui_component', 'acceptance_criteria']
+    detect: ['UIPage', 'UIComponent', 'UserFlow'],
+    include: ['Requirement', 'UIPage', 'UIComponent', 'UserFlow', 'AcceptanceCriteria']
   }
 ]
 
@@ -123,7 +119,7 @@ export function contextViewDefinitionFor(viewName: string): ContextViewDefinitio
 export function filterNodesForContextView(graph: ContextGraph, view: ContextViewDefinition | string): ContextNode[] {
   const definition = typeof view === 'string' ? contextViewDefinitionFor(view) : view
   if (definition.include === '*') {
-    return graph.nodes
+    return graph.nodes.filter((node) => !isProvenanceNode(node))
   }
   return graph.nodes.filter((node) => definition.include.includes(node.type))
 }
@@ -138,7 +134,7 @@ export function renderContextView(graph: ContextGraph, config: ContextProjectCon
     const selected = nodes.filter((node) => node.type === type)
     lines.push(`## ${headline(type)}`, '')
     for (const node of selected) {
-      lines.push(`- ${node.id}: ${node.title}`)
+      lines.push(`- ${node.id}: ${node.name}`)
     }
     lines.push('')
   }
@@ -146,7 +142,7 @@ export function renderContextView(graph: ContextGraph, config: ContextProjectCon
   if (definition.diagnostics && graph.diagnostics.length > 0) {
     lines.push('## Diagnostics', '')
     for (const diagnostic of graph.diagnostics) {
-      lines.push(`- [${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}`)
+      lines.push(`- [${diagnostic.severity}] ${diagnostic.type}: ${diagnostic.message}`)
     }
     lines.push('')
   }
@@ -171,7 +167,7 @@ export function generateTaskContext(
   const expandedIds = new Set(matchedNodes.map((node) => node.id))
 
   for (const edge of graph.edges) {
-    if (!['has_acceptance_criteria', 'relates_to', 'verified_by', 'implemented_by'].includes(edge.type)) {
+    if (!['has_acceptance_criteria', 'exposed_as', 'relates_to', 'verified_by', 'implemented_by'].includes(edge.type)) {
       continue
     }
     if (expandedIds.has(edge.from)) {
@@ -187,7 +183,7 @@ export function generateTaskContext(
     .sort((left, right) => nodePriorityForFocus(left, request.focus) - nodePriorityForFocus(right, request.focus))
   const nodeIds = new Set(nodes.map((node) => node.id))
   const edges = graph.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
-  const diagnostics = graph.diagnostics.filter((diagnostic) => diagnostic.nodeId && nodeIds.has(diagnostic.nodeId))
+  const diagnostics = graph.diagnostics.filter((diagnostic) => diagnostic.relatedNodes.some((nodeId) => nodeIds.has(nodeId)))
 
   return {
     task: request.task,
@@ -214,12 +210,12 @@ export function renderTaskContextMarkdown(result: TaskContextResult): string {
     return lines.join('\n')
   }
 
-  appendSection(lines, 'Requirements', result.nodes, 'requirement')
-  appendSection(lines, 'Acceptance Criteria', result.nodes, 'acceptance_criteria')
-  appendSection(lines, 'APIs', result.nodes, 'api_contract')
-  appendSection(lines, 'Code Symbols', result.nodes, 'code_symbol')
-  appendSection(lines, 'Test Cases', result.nodes, 'test_case')
-  appendSection(lines, 'Bugs', result.nodes, 'bug')
+  appendSection(lines, 'Requirements', result.nodes, 'Requirement')
+  appendSection(lines, 'Acceptance Criteria', result.nodes, 'AcceptanceCriteria')
+  appendSection(lines, 'APIs', result.nodes, 'APIEndpoint')
+  appendSection(lines, 'Code Symbols', result.nodes, 'CodeSymbol')
+  appendSection(lines, 'Test Cases', result.nodes, 'TestCase')
+  appendSection(lines, 'Incidents', result.nodes, 'Incident')
 
   if (result.recommendedChecks.length > 0) {
     lines.push('## Recommended Checks', '')
@@ -238,12 +234,14 @@ function appendSection(lines: string[], title: string, nodes: ContextNode[], typ
   }
   lines.push(`## ${title}`, '')
   for (const node of selected) {
-    lines.push(`- ${node.id}: ${node.title}`)
-    if (node.source.uri) {
-      lines.push(`  Source: ${node.source.uri}`)
+    lines.push(`- ${node.id}: ${node.name}`)
+    const uri = sourceUri(node)
+    if (uri) {
+      lines.push(`  Source: ${uri}`)
     }
-    if (node.content && type === 'test_case') {
-      lines.push(`  ${node.content}`)
+    const content = nodeContent(node)
+    if (content && type === 'TestCase') {
+      lines.push(`  ${content}`)
     }
   }
   lines.push('')
@@ -260,7 +258,7 @@ function nodeMatchesTask(node: ContextNode, task: string): boolean {
 }
 
 function searchableText(node: ContextNode): string {
-  return normalize([node.id, node.title, node.content, ...node.tags, ...Object.values(node.metadata).map(String)].join(' '))
+  return normalize([node.id, node.type, node.name, nodeContent(node), ...node.tags, ...Object.values(node.properties).map(String)].join(' '))
 }
 
 function taskTokens(task: string): string[] {
@@ -272,13 +270,17 @@ function nodeAllowedByModule(node: ContextNode, module: string | undefined, allo
   if (!module) {
     return true
   }
-  if (node.type !== 'code_symbol' && node.type !== 'module') {
+  if (node.type !== 'CodeSymbol' && node.type !== 'Module') {
     return allowGlobalContext
   }
   const target = module.toLowerCase()
-  return [node.title, node.source.uri, String(node.metadata.file ?? ''), String(node.metadata.modulePath ?? '')]
+  return [node.name, sourceUri(node) ?? '', nodeStringProperty(node, 'file') ?? '', nodeStringProperty(node, 'modulePath') ?? '']
     .map((value) => value.toLowerCase())
     .some((value) => value.includes(target))
+}
+
+function isProvenanceNode(node: ContextNode): boolean {
+  return node.type === 'Source' || node.type === 'SourceSnapshot'
 }
 
 function recommendedChecksFor(nodes: ContextNode[], diagnostics: Diagnostic[], focus: string | undefined): string[] {
@@ -292,7 +294,7 @@ function recommendedChecksFor(nodes: ContextNode[], diagnostics: Diagnostic[], f
   if (focus === 'testing') {
     checks.push('Confirm acceptance criteria have executable regression coverage.')
   }
-  if (nodes.some((node) => node.type === 'test_case')) {
+  if (nodes.some((node) => node.type === 'TestCase')) {
     checks.push('Run or add tests covering the related requirements before shipping changes.')
   }
   if (diagnostics.length > 0) {
@@ -321,7 +323,7 @@ function normalize(value: string): string {
 }
 
 function headline(value: string): string {
-  return value.split(/[_-]/).map(capitalize).join(' ')
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(/[_-]/).map(capitalize).join(' ')
 }
 
 function capitalize(value: string): string {
@@ -337,16 +339,16 @@ function nodePriorityForFocus(node: ContextNode, focus: string | undefined): num
 function focusTypeOrder(focus: string | undefined): ContextNodeType[] {
   switch (focus) {
     case 'implementation':
-      return ['requirement', 'acceptance_criteria', 'api_contract', 'code_symbol', 'test_case', 'bug', 'risk']
+      return ['Requirement', 'AcceptanceCriteria', 'APIEndpoint', 'CodeSymbol', 'TestCase', 'Incident', 'Risk']
     case 'review':
-      return ['diagnostic', 'risk', 'requirement', 'api_contract', 'code_symbol', 'test_case', 'bug']
+      return ['Diagnostic', 'Risk', 'Requirement', 'APIEndpoint', 'CodeSymbol', 'TestCase', 'Incident']
     case 'testing':
-      return ['requirement', 'acceptance_criteria', 'test_case', 'bug', 'api_contract', 'code_symbol', 'risk']
+      return ['Requirement', 'AcceptanceCriteria', 'TestCase', 'Incident', 'APIEndpoint', 'CodeSymbol', 'Risk']
     case 'product':
-      return ['requirement', 'business_rule', 'acceptance_criteria', 'decision', 'risk']
+      return ['Requirement', 'BusinessRule', 'AcceptanceCriteria', 'Decision', 'Risk']
     case 'design':
-      return ['design_spec', 'page', 'ui_component', 'requirement', 'acceptance_criteria']
+      return ['UIPage', 'UIComponent', 'UserFlow', 'Requirement', 'AcceptanceCriteria']
     default:
-      return ['requirement', 'business_rule', 'acceptance_criteria', 'api_contract', 'code_symbol', 'test_case', 'bug', 'risk']
+      return ['Requirement', 'BusinessRule', 'AcceptanceCriteria', 'APIEndpoint', 'CodeSymbol', 'TestCase', 'Incident', 'Risk']
   }
 }

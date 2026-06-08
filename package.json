@@ -9,7 +9,8 @@
     "context": "node --no-warnings --loader ./scripts/ts-loader.mjs packages/cli/src/index.ts",
     "demo:local-shop": "pnpm context --cwd examples/local-shop compile && pnpm context --cwd examples/local-shop view implementation && pnpm context --cwd examples/local-shop task 支持订单部分退款 --focus implementation --module refund",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "viewer:build": "pnpm --filter @context-compiler/viewer build"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

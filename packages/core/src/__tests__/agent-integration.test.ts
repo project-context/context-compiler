@@ -56,13 +56,19 @@ describe('agent integration install planning', () => {
     expect(codexSkill?.content).toContain('context task "$ARGUMENTS" --focus implementation')
     expect(codexSkill?.content).toContain('Do not scan the full `.context/` tree')
 
+    const codexInstructions = plan.files.find((file) => file.path === 'AGENTS.md')
+    expect(codexInstructions?.content).toContain('docs/architecture/super-data-network-goal.md')
+    expect(codexInstructions?.content.toLowerCase()).toContain('major work should align')
+
     const codexExplorer = plan.files.find((file) => file.path === '.codex/agents/context-explorer.toml')
     expect(codexExplorer?.content).toContain('name = "context-explorer"')
     expect(codexExplorer?.content).toContain('get_context_health')
+    expect(codexExplorer?.content).toContain('docs/architecture/super-data-network-goal.md')
 
     const claudeInstructions = plan.files.find((file) => file.path === 'CLAUDE.md')
     expect(claudeInstructions?.content).toContain('@AGENTS.md')
     expect(claudeInstructions?.content).toContain('.context/diagnostics/context-health.json')
+    expect(claudeInstructions?.content).toContain('docs/architecture/super-data-network-goal.md')
 
     const claudeSettings = plan.files.find((file) => file.path === '.claude/settings.json')
     expect(claudeSettings?.content).toContain('mcp__contextCompiler__query_runtime_provider')

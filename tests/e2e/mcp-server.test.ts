@@ -97,7 +97,7 @@ describe('context MCP server tools', () => {
     const runtimeConfig = await callContextMcpTool(rootDir, 'get_runtime_config', {})
     expect(runtimeConfig).toMatchObject({
       data: {
-        providers: expect.arrayContaining([expect.objectContaining({ id: 'refund-metrics' })])
+        providers: expect.arrayContaining([expect.objectContaining({ name: 'refund-metrics', transport: 'static' })])
       }
     })
 
@@ -123,8 +123,9 @@ describe('context MCP server tools', () => {
     }
     runtimeConfig.providers = [
       {
-        id: 'unsafe-command',
-        kind: 'command',
+        name: 'unsafe-command',
+        kind: 'static',
+        transport: 'command',
         command: 'node',
         args: ['-e', 'console.log("unsafe")']
       }
