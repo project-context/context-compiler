@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { codeGraphAdapterManifest, createCodeGraphAdapter, managedCodeGraphWorkerSource, type EmbeddedCodeGraphApi, type EmbeddedCodeGraphInstance } from './index.js'
-import type { GraphBuildInput, RawArtifact } from '@context-compiler/core'
+import { type GraphBuildInput, type RawArtifact } from '@context-compiler/core/sdk'
 
 const sourceRef = {
   sourceId: 'workspace:src-services-benefitManage-index-ts',

@@ -1,4 +1,5 @@
-import { defineComponent, inferContextViews, renderContextView, type ContextComponent, type ContextPack } from '@context-compiler/core'
+import { inferContextViews, renderContextView } from '@context-compiler/core/runtime'
+import { defineComponent, type ContextComponent, type ContextPack } from '@context-compiler/core/sdk'
 
 /** Create the default inferred context-view compression component. */
 export function createContextViewCompressComponent(): ContextComponent {

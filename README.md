@@ -44,7 +44,18 @@ Resolve
 
 `Resolve` is a kernel stage. Other stages are replaceable. For example, ingest components can target local files, GitHub, Feishu, Figma, or Jira; link components can use built-in rules, enterprise rules, Neo4j, GraphRAG, Sourcegraph, CodeQL, or another mature graph adapter.
 
-Official implementations are ordinary components. The current `@context-compiler/distribution-local` package bundles local components and auto-plans the default `compile` pipeline from declared source types such as Markdown, OpenAPI, and local source code.
+Official implementations are ordinary components. The current `@context-compiler/builtin-local` package bundles local components and auto-plans the default `compile` pipeline from declared source types such as Markdown, OpenAPI, and local source code.
+
+`@context-compiler/core` exposes explicit subpath APIs instead of one broad internal import surface:
+
+```txt
+@context-compiler/core/sdk          component SDK, contracts, diagnostics, shared helpers
+@context-compiler/core/kernel       pipeline planner/runner/state and graph revision/patch kernel
+@context-compiler/core/graph        graph model, scopes, adapter normalization, graph file IO
+@context-compiler/core/source-model source inventory, L0 packages, L1 groups, source-first plans
+@context-compiler/core/runtime      .context workspace, indexes, query APIs, corrections, writer
+@context-compiler/core/compiler     compileContextProject and source-first compile engine
+```
 
 See:
 
@@ -705,6 +716,8 @@ Context Compiler is extended through **components**, not a generic plugin folder
 
 Collect human/project materials and emit `RawArtifact`.
 
+`ingest.local-files` is the built-in source-first local ingest adapter. It owns local traversal, source routing, and raw artifact reading. Source inventory, L0 package, L1 source group, grouping decisions, correction application, and build-unit modeling live in `@context-compiler/core/source-model`.
+
 Examples:
 
 ```txt
@@ -806,7 +819,7 @@ emit.html-report
 ## Configuration Example
 
 ```ts
-import { defineContextProject } from '@context-compiler/core'
+import { defineContextProject } from '@context-compiler/core/sdk'
 
 export default defineContextProject({
   sources: [

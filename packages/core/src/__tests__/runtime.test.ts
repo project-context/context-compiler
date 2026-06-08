@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  buildContextIndexes,
-  buildContextRuntimeWorkspace,
-  createContextEdge,
-  createContextNode,
-  defineContextProject,
-  type ContextGraph
-} from '@context-compiler/core'
+import { buildContextIndexes, buildContextRuntimeWorkspace } from '@context-compiler/core/runtime'
+import { createContextEdge, createContextNode, defineContextProject, type ContextGraph } from '@context-compiler/core/sdk'
 
 const graph: ContextGraph = {
   nodes: [

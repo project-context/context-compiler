@@ -1,21 +1,8 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  buildRuntimeTraceEvent,
-  buildSourceFingerprints,
-  buildSourceFingerprintsFromInventory,
-  buildContextRuntimeWorkspace,
-  defineComponent,
-  writeContextRuntimeWorkspace,
-  ensureGraphFactProvenance,
-  writeGraphFiles,
-  type ContextComponent,
-  type EvidenceReport,
-  type ContextSourceInventory,
-  type ContextRuntimePlan,
-  type AdapterRuntimeStatus,
-  type OutputArtifact
-} from '@context-compiler/core'
+import { buildRuntimeTraceEvent, buildSourceFingerprints, buildSourceFingerprintsFromInventory, buildContextRuntimeWorkspace, writeContextRuntimeWorkspace } from '@context-compiler/core/runtime'
+import { ensureGraphFactProvenance, writeGraphFiles } from '@context-compiler/core/graph'
+import { defineComponent, type ContextComponent, type EvidenceReport, type ContextSourceInventory, type ContextRuntimePlan, type AdapterRuntimeStatus, type OutputArtifact } from '@context-compiler/core/sdk'
 
 /** Create the default file emitter for `.context` artifacts. */
 export function createFilesEmitComponent(): ContextComponent {

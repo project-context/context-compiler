@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createContextNode, type GraphBuildInput, type RawArtifact } from '@context-compiler/core'
+import { createContextNode, type GraphBuildInput, type RawArtifact } from '@context-compiler/core/sdk'
 import { createMicrosoftGraphRagAdapter, MicrosoftGraphRagRuntimeMissingError } from './index.js'
 
 const sourceRef = {

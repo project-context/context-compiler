@@ -3,33 +3,19 @@ import { execFile } from 'node:child_process'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
+import { createContextEdge, createContextNode, defineComponent, type ContextPackageRecord, type ContextComponent, type ContextEdge, type ContextNode, type ContextSourceCorrectionDecision, type ContextSourceGroupCandidate, type ContextSourceGroupingDecision, type ContextSourceGroupingDecisions, type ContextSourceGroupingRequest, type ContextSourceGroupRecord, type ContextSourceInventory, type ContextSourceInventoryEntry, type ContextSourceRoute, type RawArtifact, type SourceConfig } from '@context-compiler/core/sdk'
 import {
-  createContextEdge,
-  createContextNode,
-  defineComponent,
-  scopeDirName,
-  scopeIdForPackage,
-  scopeIdForSourceGroup,
-  slug,
-  type ContextPackageKind,
-  type ContextGraphAdapterRef,
-  type ContextPackageRecord,
-  type ContextComponent,
-  type ContextEdge,
-  type ContextNode,
-  type ContextSourceCorrectionDecision,
-  type ContextSourceGroupCandidate,
-  type ContextSourceGroupingDecision,
-  type ContextSourceGroupingDecisions,
-  type ContextSourceGroupingRequest,
-  type ContextSourceGroupRecord,
-  type ContextSourceInventory,
-  type ContextSourceInventoryEntry,
-  type ContextSourceRoute,
-  type RawArtifact,
-  type SourceConfig,
-  type SourceRef
-} from '@context-compiler/core'
+  applySourceCorrectionDecisions,
+  buildInferredUnknownGroupingDecision,
+  buildL0Packages,
+  buildSourceModelSeedGraph,
+  decisionPath,
+  effectiveSourceCorrectionDecisionRows,
+  groupingDecisionToSourceGroupRecord,
+  pathWithin,
+  sourceRefFor,
+  sourceRootNode
+} from '@context-compiler/core/source-model'
 
 const DEFAULT_MAX_FILE_BYTES = 5 * 1024 * 1024
 const execFileAsync = promisify(execFile)
@@ -121,22 +107,8 @@ type GroupingAgentMode = 'none' | 'auto' | 'claude'
 async function readSource(source: SourceConfig, rootDir: string, outputDir: string): Promise<ReadSourceResult> {
   const sourcePath = resolve(rootDir, source.path)
   const files = await listFiles(sourcePath, source, rootDir)
-  const rootSourceRef = sourceRefFor(source.name, rootDir, sourcePath, source.path)
-  const rootNodeId = `SOURCE-${slug(source.name)}`
-  const nodes: ContextNode[] = [
-    createContextNode({
-      id: rootNodeId,
-      type: 'Source',
-      name: source.name,
-      sourceRefs: [rootSourceRef],
-      properties: {
-        path: source.path,
-        type: source.type ?? 'auto',
-        parser: source.parser,
-        mediaType: source.mediaType
-      }
-    })
-  ]
+  const rootNode = sourceRootNode({ source, rootDir, sourcePath, configuredPath: source.path })
+  const nodes: ContextNode[] = []
   const entries: ContextSourceInventoryEntry[] = []
   const fileRecords: FileInventoryRecord[] = []
   const rawArtifacts: RawArtifact[] = []
@@ -173,89 +145,9 @@ async function readSource(source: SourceConfig, rootDir: string, outputDir: stri
 
   const grouping = await resolveSourceGrouping(source, rootDir, outputDir, sourcePath, entries)
   const packages = buildL0Packages(source.name, grouping.groups)
-  nodes.push(...packages.map((record) => l0PackageNode(record)))
-  nodes.push(...grouping.groups.map((group) => sourceGroupNode(group)))
-  for (const record of packages) {
-    const packageScopeId = scopeIdForPackage(record.id)
-    edges.push(
-      createContextEdge({
-        id: `EDGE-${rootNodeId}-contains-package-${record.id}`,
-        from: rootNodeId,
-        to: record.id,
-        type: 'contains_package',
-        linker: 'ingest.local-files',
-        status: 'confirmed',
-        evidence: []
-      })
-    )
-    edges.push(
-      createContextEdge({
-        id: `EDGE-${record.id}-materializes-subgraph-${slug(packageScopeId)}`,
-        from: record.id,
-        to: record.id,
-        type: 'materializes_subgraph',
-        linker: 'ingest.local-files',
-        status: 'confirmed',
-        evidence: [],
-        properties: {
-          scopeId: packageScopeId,
-          subgraphRef: `.context/graph/scopes/${scopeDirName(packageScopeId)}`
-        }
-      })
-    )
-    for (const groupId of record.sourceGroupIds) {
-      edges.push(
-        createContextEdge({
-          id: `EDGE-${record.id}-contains-source-group-${groupId}`,
-          from: record.id,
-          to: groupId,
-          type: 'contains_source_group',
-          linker: 'ingest.local-files',
-          status: 'confirmed',
-          evidence: []
-        })
-      )
-    }
-  }
-  for (const group of grouping.groups) {
-    const scopeId = scopeIdForSourceGroup(group.id)
-    edges.push(
-      createContextEdge({
-        id: `EDGE-${group.id}-materializes-subgraph-${slug(scopeId)}`,
-        from: group.id,
-        to: group.id,
-        type: 'materializes_subgraph',
-        linker: 'ingest.local-files',
-        status: 'confirmed',
-        evidence: [],
-        properties: {
-          scopeId,
-          subgraphRef: `.context/graph/scopes/${scopeDirName(scopeId)}`
-        }
-      })
-    )
-  }
-  for (const group of grouping.groups) {
-    const parent = parentGroupFor(group, grouping.groups)
-    if (!parent) {
-      continue
-    }
-    edges.push(
-      createContextEdge({
-        id: `EDGE-${parent.id}-has-child-scope-${group.id}`,
-        from: parent.id,
-        to: group.id,
-        type: 'has_child_scope',
-        linker: 'ingest.local-files',
-        status: 'confirmed',
-        evidence: [],
-        properties: {
-          parentScopeId: scopeIdForSourceGroup(parent.id),
-          childScopeId: scopeIdForSourceGroup(group.id)
-        }
-      })
-    )
-  }
+  const seedGraph = buildSourceModelSeedGraph({ sourceNode: rootNode, packages, groups: grouping.groups })
+  nodes.push(...seedGraph.nodes)
+  edges.push(...seedGraph.edges)
 
   for (const record of fileRecords) {
     const entry = record.entry
@@ -284,8 +176,8 @@ async function readSource(source: SourceConfig, rootDir: string, outputDir: stri
       )
       edges.push(
         createContextEdge({
-          id: `EDGE-${group?.id ?? rootNodeId}-contains-snapshot-${snapshotNodeId}`,
-          from: group?.id ?? rootNodeId,
+          id: `EDGE-${group?.id ?? rootNode.id}-contains-snapshot-${snapshotNodeId}`,
+          from: group?.id ?? rootNode.id,
           to: snapshotNodeId,
           type: group ? 'contains_snapshot' : 'contains',
           linker: 'ingest.local-files',
@@ -317,205 +209,6 @@ async function readSource(source: SourceConfig, rootDir: string, outputDir: stri
   return { rawArtifacts, entries, groups: grouping.groups, packages, groupingRequest: grouping.request, nodes, edges }
 }
 
-function buildL0Packages(sourceName: string, groups: ContextSourceGroupRecord[]): ContextPackageRecord[] {
-  const topLevelGroups = groups.filter((group) => !parentGroupFor(group, groups))
-  return topLevelGroups.map((group) => {
-    const kind = packageKindForSourceGroupKind(group.kind)
-    const sourceGroupIds = groups.filter((candidate) => pathWithin(candidate.path, group.path)).map((candidate) => candidate.id).sort()
-    const buildUnitKind = buildUnitKindForSourceGroupKind(group.kind)
-    const standardKind = standardBuildUnitKindForSourceGroupKind(group.kind)
-    const adapterSelection = adapterSelectionForSourceGroupKind(group.kind)
-    return {
-      id: packageIdForGroup(group),
-      sourceName,
-      path: group.path,
-      title: `${packageKindLabel(kind)}: ${group.title}`,
-      kind,
-      summary: group.summary,
-      sourceGroupIds,
-      buildUnits: [
-        {
-          id: `unit:${slug(`${sourceName}:${group.path}:${buildUnitKind}`)}`,
-          kind: buildUnitKind,
-          standardKind,
-          title: group.title,
-          sourceGroupIds,
-          adapterId: adapterSelection.adapterId,
-          adapterSelection,
-          path: group.path,
-          summary: group.summary
-        }
-      ],
-      confidence: group.confidence,
-      decisionSource: group.decisionSource,
-      sourceRef: group.sourceRef,
-      metadata: {
-        sourceGroupKind: group.kind,
-        boundaryMode: group.boundaryMode,
-        correctionDecisionIds: Array.isArray(group.metadata?.correctionDecisionIds) ? group.metadata.correctionDecisionIds : undefined
-      }
-    }
-  })
-}
-
-function l0PackageNode(record: ContextPackageRecord): ContextNode {
-  const packageScopeId = scopeIdForPackage(record.id)
-  return createContextNode({
-    id: record.id,
-    type: 'Package',
-    name: record.title,
-    status: 'hypothesis',
-    scopeId: 'scope:project',
-    subgraphRef: `.context/graph/scopes/${scopeDirName(packageScopeId)}`,
-    sourceRefs: [record.sourceRef],
-    confidence: record.confidence,
-    properties: {
-      packageKind: record.kind,
-      path: record.path,
-      summary: record.summary,
-      sourceGroupIds: record.sourceGroupIds,
-      buildUnits: record.buildUnits,
-      confidence: record.confidence,
-      decisionSource: record.decisionSource,
-      sourceName: record.sourceName,
-      scopeId: packageScopeId,
-      subgraphRef: `.context/graph/scopes/${scopeDirName(packageScopeId)}`
-    }
-  })
-}
-
-function sourceGroupNode(group: ContextSourceGroupRecord): ContextNode {
-  const scopeId = scopeIdForSourceGroup(group.id)
-  return createContextNode({
-    id: group.id,
-    type: 'SourceGroup',
-    name: group.title,
-    status: 'hypothesis',
-    scopeId: 'scope:project',
-    subgraphRef: `.context/graph/scopes/${scopeDirName(scopeId)}`,
-    sourceRefs: [group.sourceRef],
-    confidence: group.confidence,
-    properties: {
-      kind: group.kind,
-      path: group.path,
-      boundaryMode: group.boundaryMode,
-      summary: group.summary,
-      childrenPolicy: group.childrenPolicy,
-      confidence: group.confidence,
-      decisionSource: group.decisionSource,
-      sourceName: group.sourceName,
-      scopeId,
-      subgraphRef: `.context/graph/scopes/${scopeDirName(scopeId)}`
-    }
-  })
-}
-
-function packageIdForGroup(group: ContextSourceGroupRecord): string {
-  return `PACKAGE-${slug(`${group.sourceName}-${group.path}`)}`
-}
-
-function packageKindForSourceGroupKind(kind: ContextSourceGroupRecord['kind']): ContextPackageKind {
-  switch (kind) {
-    case 'repository':
-    case 'test_bundle':
-      return 'code_repository'
-    case 'doc_bundle':
-    case 'domain_area':
-    case 'api_bundle':
-    case 'config_bundle':
-      return 'product_docs'
-    case 'analysis_bundle':
-      return 'analysis'
-    case 'design_bundle':
-      return 'design'
-    case 'data_bundle':
-      return 'data'
-    case 'runtime_bundle':
-      return 'runtime'
-    case 'asset_bundle':
-      return 'asset'
-    default:
-      return 'unknown'
-  }
-}
-
-function packageKindLabel(kind: ContextPackageKind): string {
-  switch (kind) {
-    case 'product_docs':
-      return '产品资料包'
-    case 'code_repository':
-      return '代码仓库包'
-    case 'analysis':
-      return '分析资料包'
-    case 'design':
-      return '设计资料包'
-    case 'data':
-      return '数据资料包'
-    case 'runtime':
-      return '运行时资料包'
-    case 'asset':
-      return '资产包'
-    default:
-      return '未知包'
-  }
-}
-
-function buildUnitKindForSourceGroupKind(kind: ContextSourceGroupRecord['kind']): ContextPackageRecord['buildUnits'][number]['kind'] {
-  if (kind === 'repository' || kind === 'test_bundle') return 'repository'
-  if (kind === 'doc_bundle' || kind === 'analysis_bundle' || kind === 'domain_area') return 'graphrag_corpus'
-  if (kind === 'api_bundle') return 'api_contracts'
-  return 'inventory'
-}
-
-function standardBuildUnitKindForSourceGroupKind(kind: ContextSourceGroupRecord['kind']): ContextPackageRecord['buildUnits'][number]['standardKind'] {
-  if (kind === 'repository' || kind === 'test_bundle') return 'repository'
-  if (kind === 'doc_bundle' || kind === 'analysis_bundle' || kind === 'domain_area') return 'semantic_corpus'
-  if (kind === 'api_bundle') return 'api_contracts'
-  return 'inventory'
-}
-
-function adapterSelectionForSourceGroupKind(kind: ContextSourceGroupRecord['kind']): ContextGraphAdapterRef {
-  switch (kind) {
-    case 'repository':
-    case 'test_bundle':
-      return selectedAdapter('codegraph.graph-adapter', 'code-graph-builder', `Default code graph adapter for ${kind} source groups.`, [
-        'tree-sitter',
-        'codegraph.graph-adapter'
-      ])
-    case 'doc_bundle':
-    case 'analysis_bundle':
-    case 'domain_area':
-      return selectedAdapter('microsoft-graphrag.graph-adapter', 'semantic-graph-builder', `Default semantic corpus adapter for ${kind} source groups.`, [
-        'microsoft-graphrag.graph-adapter',
-        'builtin.markdown-text'
-      ])
-    case 'api_bundle':
-      return selectedAdapter('builtin.openapi', 'semantic-graph-builder', 'Default API contract adapter for api_bundle source groups.', [
-        'builtin.openapi'
-      ])
-    default:
-      return selectedAdapter('builtin.source-inventory', 'inventory', `Default inventory-only adapter for ${kind} source groups.`, [
-        'builtin.source-inventory'
-      ])
-  }
-}
-
-function selectedAdapter(
-  adapterId: string,
-  role: ContextGraphAdapterRef['role'],
-  selectionReason: string,
-  candidateAdapterIds: string[]
-): ContextGraphAdapterRef {
-  return {
-    adapterId,
-    role,
-    selectionSource: 'default',
-    selectionReason,
-    priority: 0,
-    candidateAdapterIds
-  }
-}
-
 async function resolveSourceGrouping(
   source: SourceConfig,
   rootDir: string,
@@ -528,7 +221,8 @@ async function resolveSourceGrouping(
   }
   const sourceRootPath = normalizePath(relative(rootDir, sourcePath))
   const correctionDecisions = await readSourceCorrectionDecisions(outputDir)
-  const applyCorrections = (groups: ContextSourceGroupRecord[]) => applySourceCorrectionDecisions(groups, correctionDecisions, sourceRootPath, source, rootDir)
+  const applyCorrections = (groups: ContextSourceGroupRecord[]) =>
+    applySourceCorrectionDecisions({ groups, decisions: correctionDecisions, sourceRootPath, source, rootDir })
   const decisions = await readGroupingDecisions(outputDir)
   const sourceDecisions = decisions?.decisions.filter((decision) => pathWithin(decisionPath(decision), sourceRootPath)) ?? []
   if (sourceDecisions.length === 0) {
@@ -537,14 +231,14 @@ async function resolveSourceGrouping(
     const agentDecisions = await resolveGroupingDecisionsWithAgent(source, rootDir, outputDir, sourceRootPath, request)
     if (agentDecisions.length > 0) {
       return {
-        groups: applyCorrections(agentDecisions.map((decision) => groupingDecisionToRecord(source, rootDir, decision, 'agent'))),
+        groups: applyCorrections(agentDecisions.map((decision) => groupingDecisionToSourceGroupRecord({ source, rootDir, decision, decisionSource: 'agent' }))),
         request
       }
     }
     const waitedDecisions = await waitForGroupingDecisions(outputDir, sourceRootPath, groupingWaitMs(source))
     if (waitedDecisions.length > 0) {
       return {
-        groups: applyCorrections(waitedDecisions.map((decision) => groupingDecisionToRecord(source, rootDir, decision, 'agent'))),
+        groups: applyCorrections(waitedDecisions.map((decision) => groupingDecisionToSourceGroupRecord({ source, rootDir, decision, decisionSource: 'agent' }))),
         request
       }
     }
@@ -556,7 +250,7 @@ async function resolveSourceGrouping(
       decisions: [fallback]
     })
     return {
-      groups: applyCorrections([groupingDecisionToRecord(source, rootDir, fallback, 'inferred')]),
+      groups: applyCorrections([groupingDecisionToSourceGroupRecord({ source, rootDir, decision: fallback, decisionSource: 'inferred' })]),
       request
     }
   }
@@ -575,7 +269,7 @@ async function resolveSourceGrouping(
       const decisionSource = originalDecisionPaths.has(decisionPath(decision))
         ? decisions?.agent === 'inferred' ? 'inferred' : 'agent'
         : 'inferred'
-      return groupingDecisionToRecord(source, rootDir, decision, decisionSource)
+      return groupingDecisionToSourceGroupRecord({ source, rootDir, decision, decisionSource })
     })),
     request: undefined
   }
@@ -707,18 +401,6 @@ function groupingPrompt(request: ContextSourceGroupingRequest): string {
   ].join('\n')
 }
 
-function buildInferredUnknownGroupingDecision(sourceRootPath: string): ContextSourceGroupingDecision {
-  return {
-    path: sourceRootPath,
-    kind: 'unknown',
-    boundaryMode: 'collapsed',
-    title: '未知资料包',
-    summary: 'Source materials could not be confidently classified, so they are preserved as an inventory-only unknown package.',
-    childrenPolicy: 'promote_routed',
-    confidence: 0.35
-  }
-}
-
 function parseGroupingDecisions(output: string): ContextSourceGroupingDecisions | undefined {
   const trimmed = output.trim()
   const candidates = [trimmed, stripJsonFence(trimmed), jsonObjectSlice(trimmed)].filter((candidate): candidate is string => Boolean(candidate))
@@ -813,163 +495,16 @@ async function readGroupingDecisions(outputDir: string): Promise<ContextSourceGr
 
 async function readSourceCorrectionDecisions(outputDir: string): Promise<ContextSourceCorrectionDecision[]> {
   try {
-    return (await readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8'))
+    const rows = (await readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8'))
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => JSON.parse(line) as ContextSourceCorrectionDecision)
-      .filter((decision) => decision.schemaVersion === 'context-source-correction-decision.v1' && decision.status === 'applied')
+      .filter((decision) => decision.schemaVersion === 'context-source-correction-decision.v1')
+    return effectiveSourceCorrectionDecisionRows(rows).filter((decision) => decision.status === 'applied')
   } catch {
     return []
   }
-}
-
-function applySourceCorrectionDecisions(
-  groups: ContextSourceGroupRecord[],
-  decisions: ContextSourceCorrectionDecision[],
-  sourceRootPath: string,
-  source: SourceConfig,
-  rootDir: string
-): ContextSourceGroupRecord[] {
-  if (decisions.length === 0) {
-    return groups
-  }
-  const applicable = decisions.filter((decision) => sourceCorrectionWithinRoot(decision, sourceRootPath))
-  if (applicable.length === 0) {
-    return groups
-  }
-  const byId = new Map(groups.map((group) => [group.id, group]))
-  const next = groups.map((group) => {
-    let current = group
-    const groupDecisions = applicable.filter((decision) => correctionAppliesToGroup(decision, current))
-    for (const decision of groupDecisions) {
-      current = applySourceCorrectionDecisionToGroup(current, decision)
-    }
-    byId.set(current.id, current)
-    return current
-  })
-
-  for (const decision of applicable.filter((candidate) => candidate.kind === 'split')) {
-    const targetId = decision.sourceGroupId
-    const after = decision.after
-    const path = stringRecordValue(after, 'path') ?? decision.sourcePath
-    if (!targetId || !path || byId.has(targetId)) {
-      continue
-    }
-    const kind = correctedSourceGroupKind(stringRecordValue(after, 'kind'), 'unknown')
-    const group: ContextSourceGroupRecord = {
-      id: targetId,
-      sourceName: source.name,
-      path,
-      title: stringRecordValue(after, 'title') ?? basename(path),
-      kind,
-      boundaryMode: correctedBoundaryMode(stringRecordValue(after, 'boundaryMode'), kind === 'repository' ? 'repository' : 'collapsed'),
-      summary: stringRecordValue(after, 'summary') ?? `Source group created by correction ${decision.id}.`,
-      confidence: numberRecordValue(after, 'confidence') ?? 0.7,
-      decisionSource: 'agent',
-      sourceRef: sourceRefFor(source.name, rootDir, resolve(rootDir, path), path),
-      metadata: { correctionDecisionIds: [decision.id] }
-    }
-    byId.set(group.id, group)
-    next.push(group)
-  }
-  return next.sort((left, right) => left.path.localeCompare(right.path))
-}
-
-function applySourceCorrectionDecisionToGroup(
-  group: ContextSourceGroupRecord,
-  decision: ContextSourceCorrectionDecision
-): ContextSourceGroupRecord {
-  const decisionIds = [...new Set([...(Array.isArray(group.metadata?.correctionDecisionIds) ? group.metadata.correctionDecisionIds.filter((id): id is string => typeof id === 'string') : []), decision.id])]
-  const metadata = { ...(group.metadata ?? {}), correctionDecisionIds: decisionIds }
-  if (decision.kind === 'relabel') {
-    return {
-      ...group,
-      title: stringRecordValue(decision.after, 'title') ?? group.title,
-      kind: correctedSourceGroupKind(stringRecordValue(decision.after, 'kind'), group.kind),
-      boundaryMode: correctedBoundaryMode(stringRecordValue(decision.after, 'boundaryMode'), group.boundaryMode),
-      summary: stringRecordValue(decision.after, 'summary') ?? group.summary,
-      confidence: numberRecordValue(decision.after, 'confidence') ?? group.confidence,
-      metadata
-    }
-  }
-  if (decision.kind === 'merge') {
-    return {
-      ...group,
-      metadata: {
-        ...metadata,
-        mergedIntoGroupId: decision.targetGroupId ?? stringRecordValue(decision.after, 'mergedInto')
-      }
-    }
-  }
-  if (decision.kind === 'rehome') {
-    const overrides = Array.isArray(group.metadata?.sourcePathOverrides) ? group.metadata.sourcePathOverrides : []
-    return {
-      ...group,
-      metadata: {
-        ...metadata,
-        sourcePathOverrides: [
-          ...overrides,
-          {
-            sourcePath: decision.sourcePath,
-            targetPath: decision.targetPath,
-            targetGroupId: decision.targetGroupId
-          }
-        ]
-      }
-    }
-  }
-  return { ...group, metadata }
-}
-
-function sourceCorrectionWithinRoot(decision: ContextSourceCorrectionDecision, sourceRootPath: string): boolean {
-  return [decision.sourcePath, decision.targetPath, stringRecordValue(decision.before, 'path'), stringRecordValue(decision.after, 'path')]
-    .filter((path): path is string => typeof path === 'string')
-    .some((path) => pathWithin(path, sourceRootPath))
-}
-
-function correctionAppliesToGroup(decision: ContextSourceCorrectionDecision, group: ContextSourceGroupRecord): boolean {
-  return decision.sourceGroupId === group.id ||
-    (decision.sourcePath !== undefined && pathWithin(decision.sourcePath, group.path)) ||
-    (stringRecordValue(decision.before, 'path') !== undefined && stringRecordValue(decision.before, 'path') === group.path)
-}
-
-function stringRecordValue(record: Record<string, unknown> | undefined, key: string): string | undefined {
-  const value = record?.[key]
-  return typeof value === 'string' ? value : undefined
-}
-
-function numberRecordValue(record: Record<string, unknown> | undefined, key: string): number | undefined {
-  const value = record?.[key]
-  return typeof value === 'number' ? value : undefined
-}
-
-function correctedSourceGroupKind(value: string | undefined, fallback: ContextSourceGroupRecord['kind']): ContextSourceGroupRecord['kind'] {
-  const allowed = new Set<ContextSourceGroupRecord['kind']>([
-    'repository',
-    'doc_bundle',
-    'asset_bundle',
-    'analysis_bundle',
-    'domain_area',
-    'data_bundle',
-    'api_bundle',
-    'design_bundle',
-    'test_bundle',
-    'config_bundle',
-    'runtime_bundle',
-    'vendor_bundle',
-    'generated_bundle',
-    'archive',
-    'unknown'
-  ])
-  return allowed.has(value as ContextSourceGroupRecord['kind']) ? value as ContextSourceGroupRecord['kind'] : fallback
-}
-
-function correctedBoundaryMode(value: string | undefined, fallback: ContextSourceGroupRecord['boundaryMode']): ContextSourceGroupRecord['boundaryMode'] {
-  if (value === 'expanded' || value === 'collapsed' || value === 'repository') {
-    return value
-  }
-  return fallback
 }
 
 async function waitForGroupingDecisions(
@@ -1137,32 +672,6 @@ function isArchiveFile(extension: string): boolean {
   return ['.zip', '.rar', '.7z', '.tar', '.gz', '.tgz'].includes(extension)
 }
 
-function groupingDecisionToRecord(
-  source: SourceConfig,
-  rootDir: string,
-  decision: ContextSourceGroupingDecision,
-  decisionSource: ContextSourceGroupRecord['decisionSource'] = 'agent'
-): ContextSourceGroupRecord {
-  const path = decisionPath(decision)
-  return {
-    id: `SOURCE-GROUP-${slug(`${source.name}-${path}`)}`,
-    sourceName: source.name,
-    path,
-    title: decision.title,
-    kind: decision.kind,
-    boundaryMode: decision.boundaryMode,
-    summary: decision.summary,
-    childrenPolicy: decision.childrenPolicy,
-    confidence: decision.confidence,
-    decisionSource,
-    sourceRef: sourceRefFor(source.name, rootDir, resolve(rootDir, path), path)
-  }
-}
-
-function decisionPath(decision: Pick<ContextSourceGroupingDecision, 'path'>): string {
-  return normalizeConfiguredPath(decision.path)
-}
-
 function isAutoSource(source: SourceConfig): boolean {
   return source.type === undefined || source.type === 'auto'
 }
@@ -1170,12 +679,6 @@ function isAutoSource(source: SourceConfig): boolean {
 function groupForEntry(entry: ContextSourceInventoryEntry, groups: ContextSourceGroupRecord[]): ContextSourceGroupRecord | undefined {
   return groups
     .filter((group) => pathWithin(entry.path, group.path))
-    .sort((left, right) => right.path.length - left.path.length)[0]
-}
-
-function parentGroupFor(group: ContextSourceGroupRecord, groups: ContextSourceGroupRecord[]): ContextSourceGroupRecord | undefined {
-  return groups
-    .filter((candidate) => candidate.id !== group.id && pathWithin(group.path, candidate.path))
     .sort((left, right) => right.path.length - left.path.length)[0]
 }
 
@@ -1214,12 +717,6 @@ function ancestorDirectories(path: string, rootPath: string): string[] {
     current = normalizePath(dirname(current))
   }
   return result
-}
-
-function pathWithin(path: string, rootPath: string): boolean {
-  const normalizedPath = normalizeConfiguredPath(path)
-  const normalizedRoot = normalizeConfiguredPath(rootPath)
-  return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`)
 }
 
 function routePriority(route: ContextSourceRoute): number {
@@ -1368,16 +865,6 @@ function buildInventory(
       unsupported: entries.filter((entry) => entry.status === 'unsupported').length,
       skipped: entries.filter((entry) => entry.status === 'skipped').length
     }
-  }
-}
-
-function sourceRefFor(sourceName: string, rootDir: string, file: string, path: string): SourceRef {
-  const relativePath = normalizePath(relative(rootDir, file))
-  return {
-    sourceId: `${sourceName}:${slug(relativePath)}`,
-    uri: `file://${relativePath}`,
-    title: sourceName,
-    location: { path }
   }
 }
 

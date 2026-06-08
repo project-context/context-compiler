@@ -119,11 +119,67 @@ describe('runtime MCP tools', () => {
       expect.arrayContaining([expect.objectContaining({ package: expect.objectContaining({ path: 'docs/product' }) })])
     )
     const productPackage = packageList.data.packages.find((item) => item.package.path === 'docs/product')
-    await expect(callContextMcpTool(rootDir, 'get_context_package', { packageRef: productPackage?.package.id })).resolves.toMatchObject({
+    const productView = await callContextMcpTool(rootDir, 'get_context_package', { packageRef: productPackage?.package.id }) as {
+      data: { package: { id: string }; sourceGroups: Array<{ id: string; path: string }> }
+    }
+    expect(productView).toMatchObject({
       data: {
         schemaVersion: 'context-package-view.v1',
         package: expect.objectContaining({ path: 'docs/product' }),
         sourceGroups: expect.any(Array)
+      }
+    })
+    const productGroupId = productView.data.sourceGroups[0]?.id
+    expect(productGroupId).toBeDefined()
+    if (!productGroupId) {
+      throw new Error('expected product source group id')
+    }
+    await writeFile(join(rootDir, '.context', 'sources', 'correction-decisions.jsonl'), `${JSON.stringify({
+      schemaVersion: 'context-source-correction-decision.v1',
+      id: 'SOURCE-CORRECTION-mcp-product',
+      dedupeKey: 'relabel:mcp-product',
+      proposalId: 'CORRECTION-mcp-product',
+      kind: 'relabel',
+      action: 'relabel',
+      status: 'applied',
+      packageId: productPackage?.package.id,
+      sourceGroupId: productGroupId,
+      sourcePath: 'docs/product',
+      before: { kind: 'doc_bundle', title: 'product', path: 'docs/product' },
+      after: { kind: 'domain_area', title: 'MCP Product Memory', summary: 'MCP source correction memory.', confidence: 0.83, path: 'docs/product' },
+      createdAt: '2026-06-07T00:00:00.000Z'
+    })}\n`)
+    await expect(callContextMcpTool(rootDir, 'list_package_correction_decisions', { packageRef: 'docs/product', includeDrift: true })).resolves.toMatchObject({
+      data: {
+        schemaVersion: 'context-source-correction-decision-list.v1',
+        counts: expect.objectContaining({ total: 1, active: 1 }),
+        decisions: [expect.objectContaining({ decision: expect.objectContaining({ id: 'SOURCE-CORRECTION-mcp-product' }), active: true })]
+      }
+    })
+    await expect(callContextMcpTool(rootDir, 'get_package_correction_decision', { decisionId: 'SOURCE-CORRECTION-mcp-product' })).resolves.toMatchObject({
+      data: {
+        schemaVersion: 'context-source-correction-decision-view.v1',
+        decision: expect.objectContaining({ id: 'SOURCE-CORRECTION-mcp-product' }),
+        active: true
+      }
+    })
+    await expect(callContextMcpTool(rootDir, 'replay_package_correction_decisions', { packageRef: 'docs/product' })).resolves.toMatchObject({
+      data: {
+        schemaVersion: 'context-source-correction-replay.v1',
+        written: false,
+        after: {
+          groups: expect.arrayContaining([expect.objectContaining({ id: productGroupId, title: 'MCP Product Memory' })])
+        }
+      }
+    })
+    await expect(callContextMcpTool(rootDir, 'propose_package_correction_decision_revert', { decisionId: 'SOURCE-CORRECTION-mcp-product', reason: 'test revert' })).resolves.toMatchObject({
+      data: {
+        schemaVersion: 'context-source-correction-decision-action-result.v1',
+        action: 'revert',
+        written: true,
+        proposal: expect.objectContaining({
+          derivedFrom: expect.arrayContaining([expect.objectContaining({ kind: 'source_correction_decision', id: 'SOURCE-CORRECTION-mcp-product' })])
+        })
       }
     })
     await expect(callContextMcpTool(rootDir, 'expand_context_package', { packageRef: productPackage?.package.path, mode: 'full' })).resolves.toMatchObject({
@@ -525,6 +581,38 @@ describe('runtime MCP tools', () => {
         status: { type: 'string' },
         kind: { type: 'string' }
       }
+    })
+    expect(tools.find((tool) => tool.name === 'list_package_correction_decisions')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {
+        packageRef: { type: 'string' },
+        status: { type: 'string' },
+        kind: { type: 'string' },
+        includeDrift: { type: 'boolean' }
+      }
+    })
+    expect(tools.find((tool) => tool.name === 'get_package_correction_decision')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {
+        decisionId: { type: 'string' }
+      },
+      required: ['decisionId']
+    })
+    expect(tools.find((tool) => tool.name === 'replay_package_correction_decisions')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {
+        decisionId: { type: 'string' },
+        packageRef: { type: 'string' },
+        dryRun: { type: 'boolean' }
+      }
+    })
+    expect(tools.find((tool) => tool.name === 'propose_package_correction_decision_revert')?.inputSchema).toMatchObject({
+      type: 'object',
+      properties: {
+        decisionId: { type: 'string' },
+        reason: { type: 'string' }
+      },
+      required: ['decisionId']
     })
     expect(tools.find((tool) => tool.name === 'get_correction_proposal')?.inputSchema).toMatchObject({
       type: 'object',

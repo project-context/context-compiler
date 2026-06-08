@@ -4,11 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
-import {
-  createContextNode,
-  searchContextIndex,
-  type ContextGraph
-} from '@context-compiler/core'
+import { searchContextIndex } from '@context-compiler/core/runtime'
+import { createContextNode, type ContextGraph } from '@context-compiler/core/sdk'
 
 const execFileAsync = promisify(execFile)
 

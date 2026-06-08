@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { emptyPipelineState } from '@context-compiler/core'
+import { emptyPipelineState } from '@context-compiler/core/sdk'
 import { createMarkdownDocNormalizeComponent } from './index.js'
 
 describe('markdown document normalization', () => {

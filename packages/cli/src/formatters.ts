@@ -1,27 +1,4 @@
-import {
-  type AdapterRuntimeStatus,
-  type ContextBuildUnitView,
-  type ContextCorrectionActionResult,
-  type ContextCorrectionOperationEffect,
-  type ContextCorrectionPreview,
-  type ContextCorrectionProposal,
-  type ContextEdge,
-  type ContextNode,
-  type ContextPackageCorrectionInbox,
-  type ContextPackageCorrectionSummary,
-  type ContextPackageExpansion,
-  type ContextPackageList,
-  type ContextPackageSearch,
-  type ContextPackageView,
-  type ContextRuntimeHealth,
-  type ContextSourceGroupRecord,
-  type Diagnostic,
-  type GraphExpansion,
-  type GraphFactExplanation,
-  type GraphFactHistory,
-  type GraphScopeView,
-  type LayeredSourceTrace
-} from '@context-compiler/core'
+import { type AdapterRuntimeStatus, type ContextBuildUnitView, type ContextCorrectionActionResult, type ContextCorrectionOperationEffect, type ContextCorrectionPreview, type ContextCorrectionProposal, type ContextEdge, type ContextNode, type ContextPackageCorrectionInbox, type ContextPackageCorrectionSummary, type ContextPackageExpansion, type ContextPackageList, type ContextPackageSearch, type ContextPackageView, type ContextRuntimeHealth, type ContextSourceCorrectionDecisionActionResult, type ContextSourceCorrectionDecisionList, type ContextSourceCorrectionDecisionView, type ContextSourceCorrectionReplayResult, type ContextSourceGroupRecord, type Diagnostic, type GraphExpansion, type GraphFactExplanation, type GraphFactHistory, type GraphScopeView, type LayeredSourceTrace } from '@context-compiler/core/sdk'
 
 export interface AdapterRuntimeFormatEntry {
   kind: string
@@ -280,6 +257,117 @@ export function formatContextCorrectionActionResult(result: ContextCorrectionAct
     lines.push('')
   }
   appendDiagnostics(lines, result.diagnostics)
+  return lines.join('\n')
+}
+
+/** Format package-first source correction decision memory. */
+export function formatContextSourceCorrectionDecisionList(list: ContextSourceCorrectionDecisionList): string {
+  const lines = [
+    `Correction decisions: ${list.package?.id ?? 'all packages'}`,
+    `Package: ${list.package?.path ?? 'all'}`,
+    `Total: ${list.counts.total}`,
+    `Active: ${list.counts.active}`,
+    `Drifted: ${list.counts.drifted}`,
+    `Statuses: ${formatRecordCounts(list.counts.byStatus) || 'none'}`,
+    `Kinds: ${formatRecordCounts(list.counts.byKind) || 'none'}`,
+    ''
+  ]
+  if (list.decisions.length === 0) {
+    lines.push('No source correction decisions found.')
+  } else {
+    lines.push('Decisions:')
+    for (const view of list.decisions) {
+      lines.push(`- ${formatSourceCorrectionDecisionBrief(view)}`)
+      lines.push(`  command=context package correction decision show ${view.decision.id}`)
+    }
+  }
+  appendDiagnostics(lines, list.diagnostics)
+  lines.push('')
+  return lines.join('\n')
+}
+
+/** Format one source correction decision view. */
+export function formatContextSourceCorrectionDecisionView(view: ContextSourceCorrectionDecisionView): string {
+  const lines = [
+    `Correction decision: ${view.decision.id}`,
+    `Kind: ${view.decision.kind}`,
+    `Status: ${view.effectiveStatus}`,
+    `Active: ${view.active ? 'true' : 'false'}`,
+    `Package: ${view.package?.id ?? view.decision.packageId ?? 'unknown'}`,
+    `Source group: ${view.sourceGroup?.id ?? view.decision.sourceGroupId ?? 'none'}`,
+    `Target group: ${view.targetGroup?.id ?? view.decision.targetGroupId ?? 'none'}`,
+    `Source path: ${view.decision.sourcePath ?? 'none'}`,
+    `Target path: ${view.decision.targetPath ?? 'none'}`,
+    `Dedupe key: ${view.decision.dedupeKey ?? 'none'}`,
+    `Supersedes: ${view.supersedesDecisionIds.join(', ') || 'none'}`,
+    `Superseded by: ${view.supersededByDecisionId ?? 'none'}`,
+    ''
+  ]
+  if (view.drifts.length > 0) {
+    lines.push('Drift:')
+    for (const drift of view.drifts) {
+      lines.push(`- [${drift.severity}] ${drift.type}: ${drift.message}`)
+    }
+    lines.push('')
+  } else {
+    lines.push('Drift: none', '')
+  }
+  if (view.decision.before) {
+    lines.push(`Before: ${JSON.stringify(view.decision.before)}`)
+  }
+  if (view.decision.after) {
+    lines.push(`After: ${JSON.stringify(view.decision.after)}`)
+  }
+  lines.push('', `Replay: context package correction decision replay ${view.decision.id}`)
+  lines.push(`Revert proposal: context package correction decision revert ${view.decision.id}`)
+  appendDiagnostics(lines, view.diagnostics)
+  lines.push('')
+  return lines.join('\n')
+}
+
+/** Format read-only replay of source correction decision memory. */
+export function formatContextSourceCorrectionReplay(result: ContextSourceCorrectionReplayResult): string {
+  const lines = [
+    `Correction decision replay: ${result.decisionId ?? result.package?.id ?? 'all active decisions'}`,
+    `Written: ${result.written ? 'true' : 'false'}`,
+    `Package: ${result.package?.path ?? 'all'}`,
+    `Decisions: ${result.decisions.length}`,
+    `Effects: ${result.effects.length}`,
+    `Drift: ${result.drifts.length}`,
+    `Before groups: ${result.before.groups.length}`,
+    `After groups: ${result.after.groups.length}`,
+    ''
+  ]
+  appendEffects(lines, 'Effects:', result.effects)
+  if (result.drifts.length > 0) {
+    lines.push('Drift:')
+    for (const drift of result.drifts) {
+      lines.push(`- [${drift.severity}] ${drift.type}: ${drift.message}`)
+    }
+    lines.push('')
+  }
+  appendDiagnostics(lines, result.diagnostics)
+  lines.push('')
+  return lines.join('\n')
+}
+
+/** Format source correction decision actions, such as revert proposal creation. */
+export function formatContextSourceCorrectionDecisionActionResult(result: ContextSourceCorrectionDecisionActionResult): string {
+  const lines = [
+    `Action: ${result.action}`,
+    `Written: ${result.written ? 'true' : 'false'}`,
+    `Decision: ${result.decision.id}`,
+    result.proposal ? `Proposal: ${result.proposal.id}` : undefined,
+    result.proposal ? `Proposal status: ${result.proposal.status}` : undefined,
+    result.path ? `Path: ${result.path}` : undefined,
+    `Diagnostics: ${result.diagnostics.length}`,
+    ''
+  ].filter((line): line is string => typeof line === 'string')
+  if (result.proposal) {
+    lines.push(`Next: context package correction preview ${result.proposal.id}`)
+  }
+  appendDiagnostics(lines, result.diagnostics)
+  lines.push('')
   return lines.join('\n')
 }
 
@@ -615,6 +703,12 @@ function formatCorrectionProposalBrief(proposal: ContextCorrectionProposal): str
   return `${proposal.id}\t${proposal.kind}\t${proposal.status}\tblocked=${proposal.blocked}\trisk=${proposal.impact.riskLevel}\tconflicts=${proposal.conflicts.length}\tconfidence=${proposal.confidence}\tpackage=${proposal.packageId ?? 'unknown'}${paths}${nodes}`
 }
 
+function formatSourceCorrectionDecisionBrief(view: ContextSourceCorrectionDecisionView): string {
+  const drifts = view.drifts.length > 0 ? ` drift=${view.drifts.map((drift) => drift.type).join(',')}` : ''
+  const sourcePath = view.decision.sourcePath ? ` path=${view.decision.sourcePath}` : ''
+  return `${view.decision.id}\t${view.decision.kind}\t${view.effectiveStatus}\tactive=${view.active}\tpackage=${view.package?.id ?? view.decision.packageId ?? 'unknown'}${sourcePath}${drifts}`
+}
+
 function formatRecordCounts(record: Record<string, number | undefined>): string {
   return Object.entries(record)
     .filter(([, count]) => typeof count === 'number' && count > 0)
@@ -645,13 +739,14 @@ function appendPackageBuildUnits(lines: string[], buildUnits: ContextBuildUnitVi
 }
 
 function appendPackageCorrections(lines: string[], corrections: ContextPackageCorrectionSummary): void {
-  const total = corrections.counts.findings + corrections.counts.proposedPatches + corrections.counts.rehomeProposals
+  const total = corrections.counts.findings + corrections.counts.proposedPatches + corrections.counts.rehomeProposals + corrections.proposalCounts.total + corrections.decisionCounts.total
   if (total === 0) {
     return
   }
   lines.push('', 'Corrections:')
   lines.push(`- counts evidenceReports=${corrections.counts.evidenceReports} findings=${corrections.counts.findings} proposedPatches=${corrections.counts.proposedPatches} rehomeProposals=${corrections.counts.rehomeProposals}`)
   lines.push(`- proposals total=${corrections.proposalCounts.total} blocked=${corrections.proposalCounts.blocked} conflicted=${corrections.proposalCounts.conflicted} risk=${formatRecordCounts(corrections.proposalCounts.byRiskLevel) || 'none'}`)
+  lines.push(`- decisions=${corrections.decisionCounts.total} active=${corrections.decisionCounts.active} drifted=${corrections.decisionCounts.drifted} superseded=${corrections.decisionCounts.superseded} reverted=${corrections.decisionCounts.reverted}`)
   if (corrections.nextRecommendedProposalId) {
     lines.push(`- recommended=context package correction show ${corrections.nextRecommendedProposalId}`)
   }

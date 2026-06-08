@@ -1,4 +1,4 @@
-import { defineComponent, type ContextComponent, type ParsedArtifact } from '@context-compiler/core'
+import { defineComponent, type ContextComponent, type ParsedArtifact } from '@context-compiler/core/sdk'
 
 /** Minimal OpenAPI operation representation used by the local distribution. */
 export interface ParsedOpenApiOperation {

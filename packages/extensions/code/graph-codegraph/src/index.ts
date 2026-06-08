@@ -3,23 +3,7 @@ import { rm, mkdir, writeFile, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import {
-  createContextEdge,
-  createContextNode,
-  defineContextExtension,
-  resolveAdapterExtensionPaths,
-  type ContextEdge,
-  type ContextGraphIndexHint,
-  type ContextNode,
-  type Evidence,
-  type GraphAdapter,
-  type GraphAdapterArtifact,
-  type GraphAdapterManifest,
-  type GraphBuildInput,
-  type GraphBuildResult,
-  type RawArtifact,
-  type SourceRef
-} from '@context-compiler/core'
+import { createContextEdge, createContextNode, defineContextExtension, resolveAdapterExtensionPaths, type ContextEdge, type ContextGraphIndexHint, type ContextNode, type Evidence, type GraphAdapter, type GraphAdapterArtifact, type GraphAdapterManifest, type GraphBuildInput, type GraphBuildResult, type RawArtifact, type SourceRef } from '@context-compiler/core/sdk'
 
 const execFileAsync = promisify(execFile)
 const requireFromHere = createRequire(import.meta.url)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createProgressFormatter } from './progress.js'
-import type { ContextProgressEvent } from '@context-compiler/core'
+import { type ContextProgressEvent } from '@context-compiler/core/sdk'
 
 function event(type: string, extra: Partial<ContextProgressEvent> = {}): ContextProgressEvent {
   return {

@@ -1,4 +1,4 @@
-import { createContextNode, defineComponent, type ContextComponent, type ContextNode } from '@context-compiler/core'
+import { createContextNode, defineComponent, type ContextComponent, type ContextNode } from '@context-compiler/core/sdk'
 
 /** Create the deterministic classifier that turns normalized records into graph facts. */
 export function createContextFactsClassifyComponent(): ContextComponent {

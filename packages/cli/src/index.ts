@@ -3,36 +3,8 @@ import { access, mkdir, rm, writeFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  buildGraphFactHistory,
-  approveContextCorrectionProposal,
-  applyContextCorrectionProposal,
-  expandGraphTarget,
-  expandContextPackage,
-  generateTaskContext,
-  explainGraphFact,
-  getContextCorrectionProposal,
-  getContextPackage,
-  getGraphScopeView,
-  getLayeredSourceTrace,
-  listContextPackageCorrections,
-  listContextPackages,
-  previewContextCorrectionProposal,
-  rejectContextCorrectionProposal,
-  renderContextView,
-  renderTaskContextMarkdown,
-  readEvidenceReportListing,
-  revertGraphPatch,
-  searchContextPackage,
-  searchContextIndex,
-  type AdapterRuntimeStatus,
-  type ContextCorrectionProposalKind,
-  type ContextCorrectionProposalStatus,
-  type ContextProgressReporter,
-  type EvidenceReport,
-  type ContextAgentTarget,
-  type ContextRuntimeHealth
-} from '@context-compiler/core'
+import { buildGraphFactHistory, approveContextCorrectionProposal, applyContextCorrectionProposal, expandGraphTarget, expandContextPackage, generateTaskContext, explainGraphFact, getContextPackageCorrectionDecision, getContextCorrectionProposal, getContextPackage, getGraphScopeView, getLayeredSourceTrace, listContextPackageCorrectionDecisions, listContextPackageCorrections, listContextPackages, previewContextCorrectionProposal, proposeContextPackageCorrectionDecisionRevert, rejectContextCorrectionProposal, replayContextPackageCorrectionDecisions, renderContextView, renderTaskContextMarkdown, readEvidenceReportListing, revertGraphPatch, searchContextPackage, searchContextIndex } from '@context-compiler/core/runtime'
+import { type AdapterRuntimeStatus, type ContextCorrectionProposalKind, type ContextCorrectionProposalStatus, type ContextProgressReporter, type ContextSourceCorrectionDecisionStatus, type EvidenceReport, type ContextAgentTarget, type ContextRuntimeHealth } from '@context-compiler/core/sdk'
 import {
   applySubmittedPatchesProject,
   contextPath,
@@ -57,6 +29,10 @@ import {
   formatContextPackageList,
   formatContextPackageSearch,
   formatContextPackageView,
+  formatContextSourceCorrectionDecisionActionResult,
+  formatContextSourceCorrectionDecisionList,
+  formatContextSourceCorrectionDecisionView,
+  formatContextSourceCorrectionReplay,
   formatDiagnostics,
   formatGraphExpansion,
   formatGraphFactExplanation,
@@ -257,6 +233,58 @@ export async function runCli(args: string[], options: RunCliOptions = {}): Promi
         }
         if (subcommand === 'correction') {
           const action = rest[1]
+          if (action === 'decisions') {
+            const packageRef = rest[2] && !rest[2].startsWith('--') ? rest[2] : undefined
+            const decisions = await listContextPackageCorrectionDecisions({
+              outputDir,
+              packageRef,
+              kind: correctionKindOption(rest),
+              status: sourceCorrectionDecisionStatusOption(rest),
+              includeDrift: rest.includes('--include-drift')
+            })
+            runtime.writeOut(rest.includes('--json') ? `${JSON.stringify(decisions, null, 2)}\n` : formatContextSourceCorrectionDecisionList(decisions))
+            break
+          }
+          if (action === 'decision') {
+            const decisionAction = rest[2]
+            const decisionRef = rest[3]
+            if (decisionAction === 'show') {
+              if (!decisionRef) {
+                throw new Error('Usage: context package correction decision show <decision-id> [--json]')
+              }
+              const decision = await getContextPackageCorrectionDecision({ outputDir, decisionId: decisionRef })
+              runtime.writeOut(rest.includes('--json') ? `${JSON.stringify(decision, null, 2)}\n` : formatContextSourceCorrectionDecisionView(decision))
+              break
+            }
+            if (decisionAction === 'replay') {
+              if (!decisionRef) {
+                throw new Error('Usage: context package correction decision replay <decision-id|package-ref> [--json] [--dry-run]')
+              }
+              const replay = await replayContextPackageCorrectionDecisions({
+                outputDir,
+                decisionId: decisionRef.startsWith('SOURCE-CORRECTION-') ? decisionRef : undefined,
+                packageRef: decisionRef.startsWith('SOURCE-CORRECTION-') ? undefined : decisionRef,
+                dryRun: rest.includes('--dry-run')
+              })
+              runtime.writeOut(rest.includes('--json') ? `${JSON.stringify(replay, null, 2)}\n` : formatContextSourceCorrectionReplay(replay))
+              break
+            }
+            if (decisionAction === 'revert') {
+              if (!decisionRef) {
+                throw new Error('Usage: context package correction decision revert <decision-id> [--reason "..."] [--json]')
+              }
+              const result = await proposeContextPackageCorrectionDecisionRevert({
+                outputDir,
+                decisionId: decisionRef,
+                actor: { type: 'human', name: 'context-cli' },
+                reason: optionValue(rest, '--reason'),
+                config
+              })
+              runtime.writeOut(rest.includes('--json') ? `${JSON.stringify(result, null, 2)}\n` : formatContextSourceCorrectionDecisionActionResult(result))
+              break
+            }
+            throw new Error('Usage: context package correction decision show|replay|revert <decision-id|package-ref> [--json]')
+          }
           const proposalId = rest[2]
           if (action === 'show') {
             if (!proposalId) {
@@ -308,7 +336,7 @@ export async function runCli(args: string[], options: RunCliOptions = {}): Promi
             }
             break
           }
-          throw new Error('Usage: context package correction show|preview|approve|reject|apply <proposal-id> [--json]')
+          throw new Error('Usage: context package correction decisions [package] [--json] | context package correction decision show|replay|revert <decision-id|package-ref> [--json] | context package correction show|preview|approve|reject|apply <proposal-id> [--json]')
         }
         if (subcommand === 'search') {
           const query = positionalArgs(rest.slice(1), ['--package', '--limit']).join(' ')
@@ -324,7 +352,7 @@ export async function runCli(args: string[], options: RunCliOptions = {}): Promi
           runtime.writeOut(rest.includes('--json') ? `${JSON.stringify(search, null, 2)}\n` : formatContextPackageSearch(search))
           break
         }
-        throw new Error('Usage: context package list [--json] | context package show <package-id|path|title> [--json] [--full] | context package expand <package-id|path|title> [--json] [--full] | context package corrections [package] [--json] | context package correction show|preview|approve|reject|apply <proposal-id> [--json] | context package search <query> [--package <id|path|title>] [--json]')
+        throw new Error('Usage: context package list [--json] | context package show <package-id|path|title> [--json] [--full] | context package expand <package-id|path|title> [--json] [--full] | context package corrections [package] [--json] | context package correction decisions [package] [--json] | context package correction decision show|replay|revert <decision-id|package-ref> [--json] | context package correction show|preview|approve|reject|apply <proposal-id> [--json] | context package search <query> [--package <id|path|title>] [--json]')
       }
       case 'graph': {
         if (rest[0] === 'inspect') {
@@ -460,6 +488,17 @@ function correctionStatusOption(args: string[]): ContextCorrectionProposalStatus
     return value
   }
   throw new Error('Usage: --status proposed|approved|rejected|applied')
+}
+
+function sourceCorrectionDecisionStatusOption(args: string[]): ContextSourceCorrectionDecisionStatus | undefined {
+  const value = optionValue(args, '--status')
+  if (!value) {
+    return undefined
+  }
+  if (value === 'applied' || value === 'superseded' || value === 'reverted' || value === 'invalid') {
+    return value
+  }
+  throw new Error('Usage: --status applied|superseded|reverted|invalid')
 }
 
 function correctionKindOption(args: string[]): ContextCorrectionProposalKind | undefined {

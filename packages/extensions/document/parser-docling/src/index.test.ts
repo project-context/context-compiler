@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createDoclingDocumentExtractorAdapter, doclingRuntimePaths, type DoclingRuntime } from './index.js'
-import type { DocumentExtractionInput } from '@context-compiler/core'
+import { type DocumentExtractionInput } from '@context-compiler/core/sdk'
 
 const sourceRef = {
   sourceId: 'workspace:sources-brief-pdf',

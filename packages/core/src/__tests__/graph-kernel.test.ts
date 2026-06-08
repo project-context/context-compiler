@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  applyGraphPatch,
-  applyGraphPatchBatch,
-  buildPlanningPack,
-  createContextEdge,
-  createContextNode,
-  createGraphRevision,
-  reconcileEvidenceReports,
-  validateGraphPatch,
-  type ContextGraph,
-  type ContextSourceInventory,
-  type GraphPatch,
-  type EvidenceReport
-} from '@context-compiler/core'
+import { applyGraphPatch, applyGraphPatchBatch, buildPlanningPack, createGraphRevision, reconcileEvidenceReports, validateGraphPatch } from '@context-compiler/core/kernel'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextSourceInventory, type GraphPatch, type EvidenceReport } from '@context-compiler/core/sdk'
 
 const sourceRef = {
   sourceId: 'workspace',

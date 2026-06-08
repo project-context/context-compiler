@@ -4,16 +4,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
-import {
-  buildGraphViewerOverview,
-  createContextEdge,
-  createContextNode,
-  inspectGraphViewerTarget,
-  searchGraphViewer,
-  writeGraphFiles,
-  type ContextGraph,
-  type ContextSourceInventory
-} from '@context-compiler/core'
+import { buildGraphViewerOverview, inspectGraphViewerTarget, searchGraphViewer } from '@context-compiler/core/runtime'
+import { writeGraphFiles } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const execFileAsync = promisify(execFile)
 

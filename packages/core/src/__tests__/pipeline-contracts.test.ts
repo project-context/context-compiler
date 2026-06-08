@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import {
-  ComponentRegistry,
-  PipelinePlanner,
-  PipelineRunner,
-  compileContextProject,
-  createDiagnostic,
-  defineComponent,
-  defineContextProject,
-  emptyPipelineState
-} from '@context-compiler/core'
+import { compileContextProject } from '@context-compiler/core/compiler'
+import { ComponentRegistry, PipelinePlanner, PipelineRunner } from '@context-compiler/core/kernel'
+import { createDiagnostic, defineComponent, defineContextProject, emptyPipelineState } from '@context-compiler/core/sdk'
 
 describe('pipeline component architecture', () => {
   it('registers components by stable stage and rejects duplicate ids', () => {

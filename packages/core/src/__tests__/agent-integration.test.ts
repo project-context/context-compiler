@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  applyManagedBlock,
-  buildContextAgentInstallPlan,
-  defineContextProject,
-  type ContextRuntimeConfig
-} from '@context-compiler/core'
+import { applyManagedBlock, buildContextAgentInstallPlan } from '@context-compiler/core/runtime'
+import { defineContextProject, type ContextRuntimeConfig } from '@context-compiler/core/sdk'
 
 const runtimeConfig: ContextRuntimeConfig = {
   skills: [

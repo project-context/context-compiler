@@ -200,7 +200,7 @@ function inferAgentIntegrations(graph: ContextGraph, views: ContextPack[]): Cont
         '- Major work should align with `docs/architecture/super-data-network-goal.md`.',
         '- Start with `.context/views/project.md` for workspace orientation.',
         '- Prefer package-first tools: `list_context_packages`, `get_context_package`, `expand_context_package`, and `search_context_package`.',
-        '- Review package corrections with `list_package_corrections`, `get_correction_proposal`, and `preview_correction_proposal`; approve, reject, or apply proposals before using graph patch tools.',
+        '- Review correction memory first with `list_package_correction_decisions`, `get_package_correction_decision`, and `replay_package_correction_decisions`, then inspect proposals with `list_package_corrections`, `get_correction_proposal`, and `preview_correction_proposal`.',
         '- Use graph scope tools only after choosing a package or for low-level runtime debugging.',
         generatedViews.includes('implementation') ? '- Use `.context/views/implementation.md` for coding work.' : undefined,
         hasTaskTools ? '- Use `context task "<task>" --focus implementation` for focused task context.' : undefined,
@@ -220,7 +220,7 @@ function inferAgentIntegrations(graph: ContextGraph, views: ContextPack[]): Cont
         '- Major work should align with `docs/architecture/super-data-network-goal.md`.',
         '- Prefer package-first MCP tools before asking humans to repeat project background.',
         '- Start with `list_context_packages`, then drill into `get_context_package` or `expand_context_package`.',
-        '- Use package correction MCP tools before low-level graph patch tools when evidence suggests relabel, split, merge, rehome, confirm, or reject actions.',
+        '- Use package correction decision memory tools before package correction proposal tools, and use both before low-level graph patch tools when evidence suggests relabel, split, merge, rehome, confirm, or reject actions.',
         '- Use graph MCP tools as low-level debug tools after package context is identified.',
         '- Check `.context/diagnostics/context-health.json` when context looks stale or incomplete.',
         ''
@@ -273,6 +273,10 @@ function inferMcpTools(
     mcpTool('get_context_package', baseEvidence),
     mcpTool('expand_context_package', baseEvidence),
     mcpTool('search_context_package', baseEvidence),
+    mcpTool('list_package_correction_decisions', baseEvidence),
+    mcpTool('get_package_correction_decision', baseEvidence),
+    mcpTool('replay_package_correction_decisions', baseEvidence),
+    mcpTool('propose_package_correction_decision_revert', baseEvidence),
     mcpTool('list_package_corrections', baseEvidence),
     mcpTool('get_correction_proposal', baseEvidence),
     mcpTool('preview_correction_proposal', baseEvidence),
@@ -317,7 +321,7 @@ function inferMcpTools(
 }
 
 function mcpTool(name: string, evidence: ContextRuntimeEvidence[]): ContextToolDefinition {
-  const localWriteTools = new Set(['submit_graph_patch', 'approve_correction_proposal', 'reject_correction_proposal', 'apply_correction_proposal'])
+  const localWriteTools = new Set(['submit_graph_patch', 'approve_correction_proposal', 'reject_correction_proposal', 'apply_correction_proposal', 'propose_package_correction_decision_revert'])
   return {
     name,
     description: mcpToolDescription(name),
@@ -337,6 +341,14 @@ function mcpToolDescription(name: string): string {
       return 'Expand one L0 package. Summary mode returns L1 source groups; full mode returns files, content facts, and edges.'
     case 'search_context_package':
       return 'Search within one package boundary, or all packages when packageRef is omitted.'
+    case 'list_package_correction_decisions':
+      return 'List package-scoped source correction decision memory with effective status, drift, and active decision counts.'
+    case 'get_package_correction_decision':
+      return 'Inspect one source correction decision memory record, including active status, drift, package, and source group bindings.'
+    case 'replay_package_correction_decisions':
+      return 'Replay active source correction decisions in memory to preview package/source-group effects without writing files.'
+    case 'propose_package_correction_decision_revert':
+      return 'Create a canonical package correction proposal that reverts a source correction decision; does not directly mutate source decisions.'
     case 'list_package_corrections':
       return 'List the package-first correction inbox with canonical proposals filtered by package, status, or kind.'
     case 'get_correction_proposal':
@@ -407,6 +419,30 @@ function inputSchemaForMcpTool(name: string): ContextJsonSchema {
         status: stringSchema('Optional correction status: proposed, approved, rejected, or applied.'),
         kind: stringSchema('Optional correction kind: relabel, split, merge, rehome, confirm_relation, or reject_relation.')
       })
+    case 'list_package_correction_decisions':
+      return objectSchema({
+        packageRef: stringSchema('Optional package id, package path, or package title.'),
+        status: stringSchema('Optional source correction decision status: applied, superseded, reverted, or invalid.'),
+        kind: stringSchema('Optional correction kind: relabel, split, merge, rehome, confirm_relation, or reject_relation.'),
+        includeDrift: booleanSchema('When true, include drift details in the returned effective decision views.')
+      })
+    case 'get_package_correction_decision':
+      return objectSchema({ decisionId: stringSchema('Source correction decision id.') }, ['decisionId'])
+    case 'replay_package_correction_decisions':
+      return objectSchema({
+        decisionId: stringSchema('Optional source correction decision id.'),
+        packageRef: stringSchema('Optional package id, package path, or package title.'),
+        dryRun: booleanSchema('Accepted for compatibility; replay is always read-only.')
+      })
+    case 'propose_package_correction_decision_revert':
+      return objectSchema(
+        {
+          decisionId: stringSchema('Source correction decision id to revert through a canonical proposal.'),
+          actor: stringSchema('Optional actor name recorded in the revert proposal.'),
+          reason: stringSchema('Optional human-readable revert reason.')
+        },
+        ['decisionId']
+      )
     case 'get_correction_proposal':
     case 'preview_correction_proposal':
       return objectSchema({ proposalId: stringSchema('Canonical correction proposal id.') }, ['proposalId'])

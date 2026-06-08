@@ -1,4 +1,4 @@
-import { defineComponent, type ContextComponent, type ParsedArtifact } from '@context-compiler/core'
+import { defineComponent, type ContextComponent, type ParsedArtifact } from '@context-compiler/core/sdk'
 
 /** Parsed Markdown document shape used by downstream normalizers. */
 export interface ParsedMarkdownDocument {

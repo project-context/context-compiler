@@ -1,15 +1,4 @@
-import {
-  buildAdapterRuntimeInstallPlan,
-  createContextNode,
-  defineContextExtension,
-  resolveAdapterExtensionPaths,
-  slug,
-  type GraphAdapter,
-  type GraphAdapterManifest,
-  type GraphBuildInput,
-  type GraphBuildResult,
-  type AdapterRuntimeStatus
-} from '@context-compiler/core'
+import { buildAdapterRuntimeInstallPlan, createContextNode, defineContextExtension, resolveAdapterExtensionPaths, slug, type GraphAdapter, type GraphAdapterManifest, type GraphBuildInput, type GraphBuildResult, type AdapterRuntimeStatus } from '@context-compiler/core/sdk'
 import { join } from 'node:path'
 
 export interface MicrosoftGraphRagRuntime {

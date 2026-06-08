@@ -3,21 +3,9 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  createContextEdge,
-  createContextNode,
-  expandContextPackage,
-  getContextPackage,
-  listContextPackages,
-  scopeIdForPackage,
-  scopeIdForSourceGroup,
-  searchContextPackage,
-  writeGraphFiles,
-  type ContextGraph,
-  type ContextPackageRecord,
-  type ContextSourceGroupRecord,
-  type ContextSourceInventory
-} from '@context-compiler/core'
+import { expandContextPackage, getContextPackage, listContextPackages, searchContextPackage } from '@context-compiler/core/runtime'
+import { scopeIdForPackage, scopeIdForSourceGroup, writeGraphFiles } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextPackageRecord, type ContextSourceGroupRecord, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const docRef = { sourceId: 'workspace', uri: 'file://sources/product-docs/product.md', location: { path: 'sources/product-docs/product.md' } }
 const codeRef = { sourceId: 'workspace', uri: 'file://sources/repo/src/upload.ts', location: { path: 'sources/repo/src/upload.ts' } }

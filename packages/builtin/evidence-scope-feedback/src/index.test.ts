@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createContextEdge, createContextNode, createGraphRevision, type ContextGraph } from '@context-compiler/core'
+import { createGraphRevision } from '@context-compiler/core/kernel'
+import { createContextEdge, createContextNode, type ContextGraph } from '@context-compiler/core/sdk'
 import { buildScopeFeedbackEvidenceReports, createScopeFeedbackEvidenceComponent } from './index.js'
 
 const productRef = { sourceId: 'workspace', uri: 'file://sources/product/refund.md', location: { path: 'sources/product/refund.md' } }

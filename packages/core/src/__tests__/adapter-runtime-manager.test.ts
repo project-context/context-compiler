@@ -2,17 +2,8 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  buildAdapterRuntimeInstallPlan,
-  ensureAdapterRuntimeStatus,
-  installManagedAdapterRuntime,
-  resolveAdapterRuntimeStatus,
-  resolveAdapterExtensionPaths,
-  validateGraphAdapterManifest,
-  type AdapterRuntimeCommand,
-  type ContextProgressEvent,
-  type GraphAdapterManifest
-} from '@context-compiler/core'
+import { validateGraphAdapterManifest } from '@context-compiler/core/graph'
+import { buildAdapterRuntimeInstallPlan, ensureAdapterRuntimeStatus, installManagedAdapterRuntime, resolveAdapterRuntimeStatus, resolveAdapterExtensionPaths, type AdapterRuntimeCommand, type ContextProgressEvent, type GraphAdapterManifest } from '@context-compiler/core/sdk'
 
 const outputDir = (rootDir: string) => join(rootDir, '.context')
 

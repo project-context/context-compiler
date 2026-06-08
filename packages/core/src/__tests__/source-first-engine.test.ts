@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SOURCE_FIRST_ENGINE_PHASES, SourceFirstCompileEngine, compileContextProject } from '@context-compiler/core'
+import { SOURCE_FIRST_ENGINE_PHASES, SourceFirstCompileEngine, compileContextProject } from '@context-compiler/core/compiler'
 
 describe('source-first compile engine', () => {
   it('declares the Graph-of-Graphs compile phases as the SDK compile entry model', () => {

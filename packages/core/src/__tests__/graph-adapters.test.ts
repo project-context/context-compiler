@@ -1,16 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  createAdapterRegistry,
-  normalizeGraphBuildResult,
-  validateGraphBuildResult,
-  validateGraphAdapterManifest,
-  createContextNode,
-  createContextEdge,
-  type GraphAdapterManifest,
-  type GraphBuildResult,
-  type GraphAdapter,
-  type GraphBuildInput
-} from '@context-compiler/core'
+import { createAdapterRegistry, normalizeGraphBuildResult, validateGraphBuildResult, validateGraphAdapterManifest } from '@context-compiler/core/graph'
+import { createContextNode, createContextEdge, type GraphAdapterManifest, type GraphBuildResult, type GraphAdapter, type GraphBuildInput } from '@context-compiler/core/sdk'
 
 describe('graph adapter contract', () => {
   it('validates adapter manifests before they can participate in scope graph builds', () => {

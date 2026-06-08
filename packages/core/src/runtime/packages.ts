@@ -18,6 +18,7 @@ import type {
   ContextPackageStats,
   ContextPackageSummary,
   ContextPackageView,
+  ContextSourceCorrectionDecision,
   ContextSourceGroupRecord,
   ContextSourceInventoryEntry,
   Diagnostic,
@@ -33,6 +34,7 @@ import type {
 import { loadGraphFiles } from '../graph/index.js'
 import { scopeDirName, scopeIdForPackage, scopeIdForSourceGroup } from '../graph/scopes.js'
 import { buildContextCorrectionProposals } from './corrections.js'
+import { buildContextSourceCorrectionDecisionViews } from './source-corrections.js'
 import { searchContextIndex } from './search-index.js'
 
 export interface ListContextPackagesOptions {
@@ -66,6 +68,7 @@ interface PackageRuntimeFiles {
   entries: ContextSourceInventoryEntry[]
   evidenceReports: EvidenceReport[]
   rehomeProposals: RehomeProposal[]
+  sourceCorrectionDecisions: ContextSourceCorrectionDecision[]
   overlayProposals: ContextCorrectionProposal[]
   ledgerPatches: GraphPatch[]
   submittedPatches: GraphPatch[]
@@ -177,7 +180,7 @@ export async function searchContextPackage(options: SearchContextPackageOptions)
 }
 
 async function readPackageRuntime(outputDir: string): Promise<PackageRuntimeFiles> {
-  const [graph, manifest, packages, groups, buildUnits, entries, evidenceReports, rehomeProposals, overlayProposals, ledgerPatches, submittedPatches, revisions] = await Promise.all([
+  const [graph, manifest, packages, groups, buildUnits, entries, evidenceReports, rehomeProposals, sourceCorrectionDecisions, overlayProposals, ledgerPatches, submittedPatches, revisions] = await Promise.all([
     loadGraphFiles(outputDir),
     readScopeManifest(outputDir),
     readJsonlOptional<ContextPackageRecord>(resolve(outputDir, 'sources', 'packages.jsonl')),
@@ -186,6 +189,7 @@ async function readPackageRuntime(outputDir: string): Promise<PackageRuntimeFile
     readJsonlOptional<ContextSourceInventoryEntry>(resolve(outputDir, 'sources', 'inventory.jsonl')),
     readJsonlOptional<EvidenceReport>(resolve(outputDir, 'graph', 'evidence-reports.jsonl')),
     readJsonlOptional<RehomeProposal>(resolve(outputDir, 'proposals', 'rehome-proposals.jsonl')),
+    readJsonlOptional<ContextSourceCorrectionDecision>(resolve(outputDir, 'sources', 'correction-decisions.jsonl')),
     readJsonlOptional<ContextCorrectionProposal>(resolve(outputDir, 'proposals', 'corrections.jsonl')),
     readJsonlOptional<GraphPatch>(resolve(outputDir, 'graph', 'patches', 'patches.jsonl')),
     readJsonlOptional<GraphPatch>(resolve(outputDir, 'graph', 'patches', 'submitted.jsonl')),
@@ -207,6 +211,7 @@ async function readPackageRuntime(outputDir: string): Promise<PackageRuntimeFile
     entries,
     evidenceReports,
     rehomeProposals,
+    sourceCorrectionDecisions,
     overlayProposals,
     ledgerPatches,
     submittedPatches,
@@ -365,12 +370,12 @@ function packageNextActions(
     reason: 'Search only within this package boundary.',
     scopeId: scope?.id
   })
-  if (corrections.proposalCounts.total > 0 || corrections.counts.findings > 0 || corrections.counts.proposedPatches > 0 || corrections.counts.rehomeProposals > 0) {
+  if (corrections.decisionCounts.total > 0 || corrections.proposalCounts.total > 0 || corrections.counts.findings > 0 || corrections.counts.proposedPatches > 0 || corrections.counts.rehomeProposals > 0) {
     actions.push({
       type: 'review_corrections',
       targetId: record.id,
       label: `Review corrections for ${record.title}`,
-      reason: `Review the package-first correction inbox with context package corrections ${record.path} before using low-level graph patch tools.`,
+      reason: `Review correction decisions with context package correction decisions ${record.path}, then inspect package correction proposals before using low-level graph patch tools.`,
       scopeId: scope?.id
     })
   }
@@ -402,6 +407,12 @@ function packageCorrections(
     submittedPatches: runtime.submittedPatches,
     revisions: runtime.revisions
   }).filter((proposal) => proposal.packageId === record.id)
+  const decisionViews = buildContextSourceCorrectionDecisionViews({
+    packages: runtime.packages,
+    groups: runtime.groups,
+    entries: runtime.entries,
+    decisions: runtime.sourceCorrectionDecisions
+  }).filter((view) => view.package?.id === record.id || sourceCorrectionDecisionWithinPackage(view.decision, record))
   return {
     counts: {
       evidenceReports: evidenceReports.length,
@@ -411,14 +422,37 @@ function packageCorrections(
       byFindingType: findingCounts(findings)
     },
     proposalCounts: correctionProposalCounts(proposals),
+    decisionCounts: sourceCorrectionDecisionCounts(decisionViews),
     pendingProposalIds: proposals.filter((proposal) => proposal.status === 'proposed' && !proposal.blocked).map((proposal) => proposal.id),
     approvedProposalIds: proposals.filter((proposal) => proposal.status === 'approved').map((proposal) => proposal.id),
     appliedProposalIds: proposals.filter((proposal) => proposal.status === 'applied').map((proposal) => proposal.id),
     rejectedProposalIds: proposals.filter((proposal) => proposal.status === 'rejected').map((proposal) => proposal.id),
+    activeDecisionIds: decisionViews.filter((view) => view.active).map((view) => view.decision.id),
+    driftedDecisionIds: decisionViews.filter((view) => view.drifts.length > 0).map((view) => view.decision.id),
     nextRecommendedProposalId: nextRecommendedCorrectionProposalId(proposals),
     evidenceReports,
     proposedPatches,
     rehomeProposals
+  }
+}
+
+function sourceCorrectionDecisionCounts(decisions: ReturnType<typeof buildContextSourceCorrectionDecisionViews>): ContextPackageCorrectionSummary['decisionCounts'] {
+  const byKind: ContextPackageCorrectionSummary['decisionCounts']['byKind'] = {}
+  const byStatus: ContextPackageCorrectionSummary['decisionCounts']['byStatus'] = {}
+  for (const view of decisions) {
+    byKind[view.decision.kind] = (byKind[view.decision.kind] ?? 0) + 1
+    byStatus[view.effectiveStatus] = (byStatus[view.effectiveStatus] ?? 0) + 1
+  }
+  return {
+    total: decisions.length,
+    active: decisions.filter((view) => view.active).length,
+    applied: byStatus.applied ?? 0,
+    superseded: byStatus.superseded ?? 0,
+    reverted: byStatus.reverted ?? 0,
+    invalid: byStatus.invalid ?? 0,
+    drifted: decisions.filter((view) => view.drifts.length > 0).length,
+    byKind,
+    byStatus
   }
 }
 
@@ -567,6 +601,16 @@ function idWithinPackage(id: string | undefined, context: PackageCorrectionConte
 
 function pathWithinPackage(path: string | undefined, context: PackageCorrectionContext): boolean {
   return typeof path === 'string' && pathWithin(path, context.record.path)
+}
+
+function sourceCorrectionDecisionWithinPackage(decision: ContextSourceCorrectionDecision, record: ContextPackageRecord): boolean {
+  return Boolean(
+    decision.packageId === record.id ||
+    (decision.sourceGroupId && record.sourceGroupIds.includes(decision.sourceGroupId)) ||
+    (decision.targetGroupId && record.sourceGroupIds.includes(decision.targetGroupId)) ||
+    (decision.sourcePath && pathWithin(decision.sourcePath, record.path)) ||
+    (decision.targetPath && pathWithin(decision.targetPath, record.path))
+  )
 }
 
 function sourceRefsWithinPackage(sourceRefs: SourceRef[], context: PackageCorrectionContext): boolean {

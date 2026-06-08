@@ -2,15 +2,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  createContextEdge,
-  createContextNode,
-  writeGraphFiles,
-  type ContextGraph,
-  type ContextPackageRecord,
-  type ContextSourceGroupRecord,
-  type ContextSourceInventory
-} from '@context-compiler/core'
+import { writeGraphFiles } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextPackageRecord, type ContextSourceGroupRecord, type ContextSourceInventory } from '@context-compiler/core/sdk'
 import { runCli } from './index.js'
 
 const docRef = { sourceId: 'workspace', uri: 'file://sources/product-docs/product.md', location: { path: 'sources/product-docs/product.md' } }
@@ -48,6 +41,63 @@ describe('package CLI options', () => {
     expect(showText.stdout).toContain('Corrections:')
     expect(showText.stdout).toContain('evidenceReports=1')
     expect(showText.stdout).toContain('rehomeProposals=1')
+    expect(showText.stdout).toContain('decisions=')
+
+    const decisions = await runCli(['package', 'correction', 'decisions', 'sources/product-docs', '--include-drift', '--json'], { cwd })
+    expect(decisions.exitCode).toBe(0)
+    const decisionList = JSON.parse(decisions.stdout) as {
+      decisions: Array<{ decision: { id: string; status: string }; active: boolean; drifts: unknown[] }>
+      counts: { total: number; active: number; drifted: number }
+    }
+    expect(decisionList).toMatchObject({
+      schemaVersion: 'context-source-correction-decision-list.v1',
+      package: { id: 'PACKAGE-docs' },
+      counts: expect.objectContaining({ total: 2, active: 1, drifted: 1 }),
+      decisions: expect.arrayContaining([
+        expect.objectContaining({
+          decision: expect.objectContaining({ id: 'SOURCE-CORRECTION-docs-active', status: 'applied' }),
+          active: true
+        }),
+        expect.objectContaining({
+          decision: expect.objectContaining({ id: 'SOURCE-CORRECTION-docs-drift', status: 'applied' }),
+          active: false,
+          drifts: expect.arrayContaining([expect.objectContaining({ type: 'missing_target_group' })])
+        })
+      ])
+    })
+    const activeDecisionId = decisionList.decisions.find((decision) => decision.active)?.decision.id
+    expect(activeDecisionId).toBeDefined()
+    if (!activeDecisionId) {
+      throw new Error('expected active source correction decision id')
+    }
+    const decisionShow = await runCli(['package', 'correction', 'decision', 'show', activeDecisionId, '--json'], { cwd })
+    expect(decisionShow.exitCode).toBe(0)
+    expect(JSON.parse(decisionShow.stdout)).toMatchObject({
+      schemaVersion: 'context-source-correction-decision-view.v1',
+      decision: expect.objectContaining({ id: activeDecisionId }),
+      active: true
+    })
+    const replay = await runCli(['package', 'correction', 'decision', 'replay', 'sources/product-docs', '--json'], { cwd })
+    expect(replay.exitCode).toBe(0)
+    expect(JSON.parse(replay.stdout)).toMatchObject({
+      schemaVersion: 'context-source-correction-replay.v1',
+      written: false,
+      after: {
+        groups: expect.arrayContaining([expect.objectContaining({ id: 'SOURCE-GROUP-docs', title: 'Decision Docs' })])
+      }
+    })
+    const revertDecision = await runCli(['package', 'correction', 'decision', 'revert', activeDecisionId, '--reason', 'undo memory', '--json'], { cwd })
+    expect(revertDecision.exitCode).toBe(0)
+    expect(JSON.parse(revertDecision.stdout)).toMatchObject({
+      schemaVersion: 'context-source-correction-decision-action-result.v1',
+      action: 'revert',
+      written: true,
+      decision: expect.objectContaining({ id: activeDecisionId }),
+      proposal: expect.objectContaining({
+        kind: 'relabel',
+        derivedFrom: expect.arrayContaining([expect.objectContaining({ kind: 'source_correction_decision', id: activeDecisionId })])
+      })
+    })
 
     const corrections = await runCli(['package', 'corrections', 'sources/product-docs', '--json'], { cwd })
     expect(corrections.exitCode).toBe(0)
@@ -57,9 +107,10 @@ describe('package CLI options', () => {
     }
     expect(inbox).toMatchObject({
       schemaVersion: 'context-package-correction-inbox.v1',
-      counts: expect.objectContaining({ total: 2, proposed: 2, blocked: 1, conflicted: 2 }),
+      counts: expect.objectContaining({ total: 3, proposed: 3, blocked: 1, conflicted: 3 }),
       proposals: expect.arrayContaining([
         expect.objectContaining({ kind: 'relabel', status: 'proposed', blocked: false, impact: expect.objectContaining({ riskLevel: 'medium' }) }),
+        expect.objectContaining({ kind: 'relabel', derivedFrom: expect.arrayContaining([expect.objectContaining({ kind: 'source_correction_decision', id: activeDecisionId })]) }),
         expect.objectContaining({ kind: 'rehome', status: 'proposed' })
       ])
     })
@@ -69,7 +120,7 @@ describe('package CLI options', () => {
     expect(correctionsText.stdout).toContain('Risk:')
     expect(correctionsText.stdout).toContain('Conflicts:')
     expect(correctionsText.stdout).toContain('Recommended:')
-    const relabelId = inbox.proposals.find((proposal) => proposal.kind === 'relabel')?.id
+    const relabelId = inbox.proposals.find((proposal) => proposal.kind === 'relabel' && proposal.id !== JSON.parse(revertDecision.stdout).proposal.id)?.id
     const rehomeId = inbox.proposals.find((proposal) => proposal.kind === 'rehome')?.id
     expect(relabelId).toBeDefined()
     expect(rehomeId).toBeDefined()
@@ -290,6 +341,7 @@ async function writeSources(outputDir: string, inventory: ContextSourceInventory
 async function writeCorrections(outputDir: string): Promise<void> {
   await mkdir(join(outputDir, 'graph'), { recursive: true })
   await mkdir(join(outputDir, 'proposals'), { recursive: true })
+  await mkdir(join(outputDir, 'sources'), { recursive: true })
   await writeJsonl(join(outputDir, 'graph', 'evidence-reports.jsonl'), [{
     schemaVersion: 'context-evidence-report.v1',
     id: 'evidence:docs-correction',
@@ -331,6 +383,40 @@ async function writeCorrections(outputDir: string): Promise<void> {
     status: 'proposed',
     createdAt: '2026-06-07T00:00:00.000Z'
   }])
+  await writeJsonl(join(outputDir, 'sources', 'correction-decisions.jsonl'), [
+    {
+      schemaVersion: 'context-source-correction-decision.v1',
+      id: 'SOURCE-CORRECTION-docs-active',
+      dedupeKey: 'relabel:docs',
+      proposalId: 'CORRECTION-docs-active',
+      kind: 'relabel',
+      action: 'relabel',
+      status: 'applied',
+      packageId: 'PACKAGE-docs',
+      sourceGroupId: 'SOURCE-GROUP-docs',
+      sourcePath: 'sources/product-docs',
+      before: { kind: 'doc_bundle', title: 'Product Docs', summary: 'Product Docs', confidence: 0.9, path: 'sources/product-docs' },
+      after: { kind: 'domain_area', title: 'Decision Docs', summary: 'Decision memory applied.', confidence: 0.86, path: 'sources/product-docs' },
+      createdAt: '2026-06-07T00:00:00.000Z'
+    },
+    {
+      schemaVersion: 'context-source-correction-decision.v1',
+      id: 'SOURCE-CORRECTION-docs-drift',
+      dedupeKey: 'rehome:docs-drift',
+      proposalId: 'CORRECTION-docs-drift',
+      kind: 'rehome',
+      action: 'rehome',
+      status: 'applied',
+      packageId: 'PACKAGE-docs',
+      sourceGroupId: 'SOURCE-GROUP-docs',
+      targetGroupId: 'SOURCE-GROUP-missing',
+      sourcePath: 'sources/product-docs/missing.md',
+      targetPath: 'sources/product-docs/missing/missing.md',
+      before: { sourcePath: 'sources/product-docs/missing.md', sourceGroupId: 'SOURCE-GROUP-docs' },
+      after: { targetPath: 'sources/product-docs/missing/missing.md', targetGroupId: 'SOURCE-GROUP-missing' },
+      createdAt: '2026-06-07T00:00:01.000Z'
+    }
+  ])
 }
 
 async function writeJsonl(path: string, rows: unknown[]): Promise<void> {

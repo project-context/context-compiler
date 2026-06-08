@@ -3,18 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import {
-  defineContextExtension,
-  resolveAdapterExtensionPaths,
-  resolveAdapterRuntimeStatus,
-  type Diagnostic,
-  type DocumentExtractionInput,
-  type DocumentExtractionResult,
-  type DocumentExtractorAdapter,
-  type DocumentExtractorAdapterManifest,
-  type GraphAdapterArtifact,
-  type ParsedArtifact
-} from '@context-compiler/core'
+import { defineContextExtension, resolveAdapterExtensionPaths, resolveAdapterRuntimeStatus, type Diagnostic, type DocumentExtractionInput, type DocumentExtractionResult, type DocumentExtractorAdapter, type DocumentExtractorAdapterManifest, type GraphAdapterArtifact, type ParsedArtifact } from '@context-compiler/core/sdk'
 
 const execFileAsync = promisify(execFile)
 

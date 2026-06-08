@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./sdk": "./src/sdk/index.ts",
+    "./kernel": "./src/kernel/index.ts",
+    "./graph": "./src/graph/index.ts",
+    "./source-model": "./src/source-model/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./compiler": "./src/compiler/index.ts"
   }
 }

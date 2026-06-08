@@ -1,4 +1,4 @@
-import { defineComponent, type ContextComponent } from '@context-compiler/core'
+import { defineComponent, type ContextComponent } from '@context-compiler/core/sdk'
 
 /** Create a placeholder task-context compressor for configured future task packs. */
 export function createTaskContextCompressComponent(): ContextComponent {

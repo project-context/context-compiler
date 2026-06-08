@@ -1,4 +1,5 @@
-import { buildContextRuntimePlan, defineComponent, type ContextComponent } from '@context-compiler/core'
+import { buildContextRuntimePlan } from '@context-compiler/core/runtime'
+import { defineComponent, type ContextComponent } from '@context-compiler/core/sdk'
 
 /** Create the compiler-owned runtime capability planning component. */
 export function createRuntimePlanCompressComponent(): ContextComponent {

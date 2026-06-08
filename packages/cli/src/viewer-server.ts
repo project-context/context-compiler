@@ -1,15 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { basename, extname, join, relative, resolve } from 'node:path'
-import {
-  buildGraphViewerOverview,
-  expandGraphTarget,
-  explainGraphFact,
-  getGraphScopeView,
-  getLayeredSourceTrace,
-  inspectGraphViewerTarget,
-  searchGraphViewer
-} from '@context-compiler/core'
+import { buildGraphViewerOverview, expandGraphTarget, explainGraphFact, getGraphScopeView, getLayeredSourceTrace, inspectGraphViewerTarget, searchGraphViewer } from '@context-compiler/core/runtime'
 
 export interface ContextViewerServerOptions {
   outputDir: string

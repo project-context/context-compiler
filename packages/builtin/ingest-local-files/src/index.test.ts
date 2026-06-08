@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { defineContextProject, emptyPipelineState, type ContextSourceInventory } from '@context-compiler/core'
+import { defineContextProject, emptyPipelineState, type ContextSourceInventory } from '@context-compiler/core/sdk'
 import { createLocalFilesIngestComponent } from './index.js'
 
 async function writeFixture(rootDir: string): Promise<void> {
@@ -52,29 +52,60 @@ async function writeSourceCorrectionDecisions(rootDir: string): Promise<void> {
   await mkdir(join(rootDir, '.context', 'sources'), { recursive: true })
   await writeFile(
     join(rootDir, '.context', 'sources', 'correction-decisions.jsonl'),
-    `${JSON.stringify({
-      schemaVersion: 'context-source-correction-decision.v1',
-      id: 'SOURCE-CORRECTION-relabel-test',
-      proposalId: 'CORRECTION-relabel-test',
-      kind: 'relabel',
-      action: 'relabel',
-      status: 'applied',
-      packageId: 'PACKAGE-workspace-sources',
-      sourceGroupId: 'SOURCE-GROUP-workspace-sources',
-      sourcePath: 'sources',
-      before: {
-        kind: 'doc_bundle',
-        title: 'Mixed source bundle'
+    [
+      {
+        schemaVersion: 'context-source-correction-decision.v1',
+        id: 'SOURCE-CORRECTION-relabel-old',
+        dedupeKey: 'relabel:workspace:sources',
+        proposalId: 'CORRECTION-relabel-old',
+        kind: 'relabel',
+        action: 'relabel',
+        status: 'applied',
+        packageId: 'PACKAGE-workspace-sources',
+        sourceGroupId: 'SOURCE-GROUP-workspace-sources',
+        sourcePath: 'sources',
+        before: { kind: 'doc_bundle', title: 'Mixed source bundle', path: 'sources' },
+        after: { kind: 'domain_area', title: 'Old Corrected Domain', path: 'sources' },
+        createdAt: '2026-06-06T00:00:00.000Z'
       },
-      after: {
-        kind: 'domain_area',
-        title: 'Corrected Domain',
-        summary: 'A corrected source group inherited from the package correction inbox.',
-        confidence: 0.88
+      {
+        schemaVersion: 'context-source-correction-decision.v1',
+        id: 'SOURCE-CORRECTION-relabel-test',
+        dedupeKey: 'relabel:workspace:sources',
+        proposalId: 'CORRECTION-relabel-test',
+        kind: 'relabel',
+        action: 'relabel',
+        status: 'applied',
+        packageId: 'PACKAGE-workspace-sources',
+        sourceGroupId: 'SOURCE-GROUP-workspace-sources',
+        sourcePath: 'sources',
+        before: { kind: 'doc_bundle', title: 'Mixed source bundle', path: 'sources' },
+        after: {
+          kind: 'domain_area',
+          title: 'Corrected Domain',
+          summary: 'A corrected source group inherited from the package correction inbox.',
+          confidence: 0.88,
+          path: 'sources'
+        },
+        createdAt: '2026-06-07T00:00:00.000Z',
+        appliedRevisionId: 'REV-correction-test'
       },
-      createdAt: '2026-06-07T00:00:00.000Z',
-      appliedRevisionId: 'REV-correction-test'
-    })}\n`
+      {
+        schemaVersion: 'context-source-correction-decision.v1',
+        id: 'SOURCE-CORRECTION-reverted-test',
+        dedupeKey: 'relabel:workspace:reverted',
+        proposalId: 'CORRECTION-reverted-test',
+        kind: 'relabel',
+        action: 'relabel',
+        status: 'reverted',
+        packageId: 'PACKAGE-workspace-sources',
+        sourceGroupId: 'SOURCE-GROUP-workspace-sources',
+        sourcePath: 'sources',
+        before: { kind: 'doc_bundle', title: 'Mixed source bundle', path: 'sources' },
+        after: { kind: 'analysis_bundle', title: 'Should Not Apply', path: 'sources' },
+        createdAt: '2026-06-08T00:00:00.000Z'
+      }
+    ].map((row) => JSON.stringify(row)).join('\n') + '\n'
   )
 }
 

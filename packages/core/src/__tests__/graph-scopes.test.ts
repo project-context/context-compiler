@@ -2,14 +2,9 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
-import {
-  buildContextIndexes,
-  buildGraphScopes,
-  createContextNode,
-  writeGraphFiles,
-  type ContextGraph,
-  type ContextSourceInventory
-} from '@context-compiler/core'
+import { buildContextIndexes } from '@context-compiler/core/runtime'
+import { buildGraphScopes, writeGraphFiles } from '@context-compiler/core/graph'
+import { createContextNode, type ContextGraph, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const sourceRef = {
   sourceId: 'workspace',

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  defineContextExtension,
-  validateContextExtensionManifest,
-  type ContextExtensionManifest,
-  type DocumentExtractorAdapterManifest
-} from '@context-compiler/core'
+import { defineContextExtension, validateContextExtensionManifest, type ContextExtensionManifest, type DocumentExtractorAdapterManifest } from '@context-compiler/core/sdk'
 
 describe('context extension contract', () => {
   it('defines and validates extension packages with parser and graph adapter manifests', () => {

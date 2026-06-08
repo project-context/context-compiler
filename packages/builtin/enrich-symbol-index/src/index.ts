@@ -1,6 +1,6 @@
 import { basename } from 'node:path'
 import ts from 'typescript'
-import { createContextNode, defineComponent, type ContextComponent, type ContextNode } from '@context-compiler/core'
+import { createContextNode, defineComponent, type ContextComponent, type ContextNode } from '@context-compiler/core/sdk'
 
 /** Create the dependency-free symbol index enrichment component. */
 export function createSymbolIndexEnrichComponent(): ContextComponent {

@@ -1,19 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import {
-  createAdapterRegistry,
-  defineComponent,
-  ensureAdapterRuntimeStatus,
-  type ContextComponent,
-  type ContextSourceInventory,
-  type ContextSourceInventoryEntry,
-  type ContextSourceGroupKind,
-  type Diagnostic,
-  type DocumentExtractorAdapter,
-  type GraphAdapterArtifact,
-  type AdapterRuntimeStatus,
-  type ParsedArtifact
-} from '@context-compiler/core'
+import { createAdapterRegistry } from '@context-compiler/core/graph'
+import { defineComponent, ensureAdapterRuntimeStatus, type ContextComponent, type ContextSourceInventory, type ContextSourceInventoryEntry, type ContextSourceGroupKind, type Diagnostic, type DocumentExtractorAdapter, type GraphAdapterArtifact, type AdapterRuntimeStatus, type ParsedArtifact } from '@context-compiler/core/sdk'
 
 export interface DocumentExtractorsParseOptions {
   documentExtractors?: DocumentExtractorAdapter[]

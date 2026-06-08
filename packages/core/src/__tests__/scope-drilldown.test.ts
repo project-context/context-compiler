@@ -2,17 +2,9 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  createContextEdge,
-  createContextNode,
-  getGraphScopeView,
-  expandGraphTarget,
-  getLayeredSourceTrace,
-  scopeIdForSourceGroup,
-  writeGraphFiles,
-  type ContextGraph,
-  type ContextSourceInventory
-} from '@context-compiler/core'
+import { getGraphScopeView, expandGraphTarget, getLayeredSourceTrace } from '@context-compiler/core/runtime'
+import { scopeIdForSourceGroup, writeGraphFiles } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const docRef = {
   sourceId: 'workspace',

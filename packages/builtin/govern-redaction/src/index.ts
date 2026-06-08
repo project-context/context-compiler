@@ -1,4 +1,4 @@
-import { defineComponent, type ContextComponent, type ContextGraph, type ContextNode } from '@context-compiler/core'
+import { defineComponent, type ContextComponent, type ContextGraph, type ContextNode } from '@context-compiler/core/sdk'
 
 /** Create a governance component that redacts common secrets before emission. */
 export function createRedactionGovernComponent(): ContextComponent {

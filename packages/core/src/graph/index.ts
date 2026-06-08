@@ -4,6 +4,7 @@ import type { ContextEdge, ContextGraph, ContextGraphScopeManifest, ContextNode,
 import { fingerprintValue, nodeContent, slug, sourceUri } from './model.js'
 import { buildGraphScopes, scopeDirName } from './scopes.js'
 
+export * from '../contracts/index.js'
 export * from './model.js'
 export * from './scopes.js'
 export * from './adapters.js'

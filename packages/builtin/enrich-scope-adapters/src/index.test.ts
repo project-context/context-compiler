@@ -2,15 +2,7 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import {
-  createContextNode,
-  emptyPipelineState,
-  type GraphAdapter,
-  type GraphBuildInput,
-  type GraphBuildResult,
-  type PipelineExecutionContext,
-  type RawArtifact
-} from '@context-compiler/core'
+import { createContextNode, emptyPipelineState, type GraphAdapter, type GraphBuildInput, type GraphBuildResult, type PipelineExecutionContext, type RawArtifact } from '@context-compiler/core/sdk'
 import { createScopeAdaptersEnrichComponent } from './index.js'
 
 const sourceRef = {

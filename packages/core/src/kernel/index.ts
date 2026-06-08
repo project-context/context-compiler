@@ -22,6 +22,9 @@ import type {
 import { createDiagnostic } from '../diagnostics/index.js'
 import { createContextEdge, createContextNode, fingerprintValue, slug } from '../graph/model.js'
 
+export * from '../contracts/index.js'
+export * from '../pipeline/index.js'
+
 export interface CreateGraphRevisionOptions {
   parentRevisionId?: string
   reason: string

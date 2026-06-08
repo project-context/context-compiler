@@ -14,7 +14,7 @@ import { createDocumentExtractorsParseComponent } from '@context-compiler/builti
 import { createMarkdownParseComponent } from '@context-compiler/builtin-parse-markdown'
 import { createOpenApiParseComponent } from '@context-compiler/builtin-parse-openapi'
 import { createDefaultRulesValidateComponent } from '@context-compiler/builtin-validate-default-rules'
-import type { ContextDistribution, ContextProjectConfig, PipelineDefinition, SourceConfig } from '@context-compiler/core'
+import { type ContextDistribution, type ContextProjectConfig, type PipelineDefinition, type SourceConfig } from '@context-compiler/core/sdk'
 import { codeGraphExtension, createCodeGraphAdapter } from '@context-compiler/extension-graph-codegraph'
 import { createMicrosoftGraphRagAdapter, createMockMicrosoftGraphRagRuntime, microsoftGraphRagExtension } from '@context-compiler/extension-graph-microsoft-graphrag'
 import { createDoclingDocumentExtractorAdapter, doclingExtension } from '@context-compiler/extension-parser-docling'

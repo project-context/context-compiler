@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-  buildSourceFirstPlans,
-  createContextNode,
-  defineContextProject,
-  type ContextGraph,
-  type ContextSourceInventory
-} from '@context-compiler/core'
+import { buildSourceFirstPlans } from '@context-compiler/core/source-model'
+import { createContextNode, defineContextProject, type ContextGraph, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const inventory: ContextSourceInventory = {
   schemaVersion: 'context-source-inventory.v1',

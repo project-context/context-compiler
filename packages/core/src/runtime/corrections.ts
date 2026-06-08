@@ -642,6 +642,14 @@ function buildCorrectionProposals(runtime: CorrectionRuntimeFiles): ContextCorre
     const context = packageContexts.find((candidate) => patchWithinPackage(patch, candidate))
     proposals.push(createProposal({ patch }, patchKind, context))
   }
+  for (const overlay of runtime.overlayProposals) {
+    if (proposals.some((proposal) => proposal.id === overlay.id)) {
+      continue
+    }
+    if (overlay.derivedFrom.some((source) => source.kind === 'source_correction_decision')) {
+      proposals.push(overlay)
+    }
+  }
   const merged = mergeDuplicateProposals(proposals)
   const overlaid = applyStatusOverlay(merged, runtime.overlayProposals, runtime.ledgerPatches)
   return enrichProposalTrust(overlaid, runtime)

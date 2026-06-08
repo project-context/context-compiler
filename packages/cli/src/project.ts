@@ -1,31 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import {
-  applyManagedBlock,
-  applySubmittedGraphPatches,
-  installManagedAdapterRuntime,
-  buildContextAgentInstallPlan,
-  checkSourceFingerprints,
-  compileContextProject,
-  loadContextConfig,
-  loadGraphFiles,
-  resolveAdapterRuntimeStatus,
-  resolveOutputDir,
-  type AdapterRuntimeStatus,
-  type ContextExtensionAdapterKind,
-  type DocumentExtractorAdapterManifest,
-  type GraphAdapterManifest,
-  type ContextAgentInstallFile,
-  type ContextAgentInstallPlan,
-  type ContextAgentInstallStatus,
-  type ContextAgentTarget,
-  type ContextGraph,
-  type ContextProgressEvent,
-  type ContextProgressReporter,
-  type ContextProjectConfig,
-  type ContextRuntimeConfig,
-  type ContextSourceFingerprint
-} from '@context-compiler/core'
+import { compileContextProject } from '@context-compiler/core/compiler'
+import { applyManagedBlock, applySubmittedGraphPatches, buildContextAgentInstallPlan, checkSourceFingerprints } from '@context-compiler/core/runtime'
+import { loadGraphFiles, resolveOutputDir } from '@context-compiler/core/graph'
+import { installManagedAdapterRuntime, loadContextConfig, resolveAdapterRuntimeStatus, type AdapterRuntimeStatus, type ContextExtensionAdapterKind, type DocumentExtractorAdapterManifest, type GraphAdapterManifest, type ContextAgentInstallFile, type ContextAgentInstallPlan, type ContextAgentInstallStatus, type ContextAgentTarget, type ContextGraph, type ContextProgressEvent, type ContextProgressReporter, type ContextProjectConfig, type ContextRuntimeConfig, type ContextSourceFingerprint } from '@context-compiler/core/sdk'
 import { createBuiltinLocalDistribution } from '@context-compiler/builtin-local'
 
 type RuntimeAdapterManifest = GraphAdapterManifest | DocumentExtractorAdapterManifest

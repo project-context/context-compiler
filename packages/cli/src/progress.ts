@@ -1,4 +1,4 @@
-import type { ContextProgressEvent, PipelineStage } from '@context-compiler/core'
+import { type ContextProgressEvent, type PipelineStage } from '@context-compiler/core/sdk'
 
 export type CliProgressStyle = 'log' | 'bar'
 

@@ -5,54 +5,11 @@ import type { Readable, Writable } from 'node:stream'
 import { once } from 'node:events'
 import { promisify } from 'node:util'
 import { dirname, resolve } from 'node:path'
-import {
-  applyGraphPatch,
-  approveContextCorrectionProposal,
-  applyContextCorrectionProposal,
-  buildGraphFactHistory,
-  compileContextProject,
-  createGraphRevision,
-  deriveEvidenceGraphPatches,
-  expandContextPackage,
-  expandGraphTarget,
-  explainGraphFact,
-  explainTrace,
-  getContextCorrectionProposal,
-  getGraphScopeView,
-  getContextPackage,
-  getLayeredSourceTrace,
-  generateTaskContext,
-  listContextPackageCorrections,
-  listContextPackages,
-  loadContextConfig,
-  loadGraphFiles,
-  nodeContent,
-  nodeStringProperty,
-  previewContextCorrectionProposal,
-  readEvidenceReportListing,
-  rejectContextCorrectionProposal,
-  sourceUri,
-  renderContextView,
-  resolveOutputDir,
-  searchContextPackage,
-  searchContextIndex,
-  type ContextCorrectionProposalKind,
-  type ContextCorrectionProposalStatus,
-  type ContextGraph,
-  type ContextGraphScopeManifest,
-  type ContextProjectConfig,
-  type ContextRuntimeConfig,
-  type ContextRuntimeEvidence,
-  type ContextRuntimeFreshness,
-  type ContextRuntimeProvider,
-  type EvidenceReport,
-  type ContextSourceInventoryEntry,
-  type ContextToolDefinition,
-  type GraphPatch,
-  type GraphRevision,
-  type PlanningPack,
-  type RehomeProposal
-} from '@context-compiler/core'
+import { compileContextProject } from '@context-compiler/core/compiler'
+import { approveContextCorrectionProposal, applyContextCorrectionProposal, buildGraphFactHistory, deriveEvidenceGraphPatches, expandContextPackage, expandGraphTarget, explainGraphFact, getContextCorrectionProposal, getContextPackageCorrectionDecision, getGraphScopeView, getContextPackage, getLayeredSourceTrace, generateTaskContext, listContextPackageCorrections, listContextPackageCorrectionDecisions, listContextPackages, previewContextCorrectionProposal, proposeContextPackageCorrectionDecisionRevert, readEvidenceReportListing, rejectContextCorrectionProposal, replayContextPackageCorrectionDecisions, renderContextView, searchContextPackage, searchContextIndex } from '@context-compiler/core/runtime'
+import { applyGraphPatch, createGraphRevision } from '@context-compiler/core/kernel'
+import { explainTrace, loadGraphFiles, resolveOutputDir } from '@context-compiler/core/graph'
+import { loadContextConfig, nodeContent, nodeStringProperty, sourceUri, type ContextCorrectionProposalKind, type ContextCorrectionProposalStatus, type ContextSourceCorrectionDecisionStatus, type ContextGraph, type ContextGraphScopeManifest, type ContextProjectConfig, type ContextRuntimeConfig, type ContextRuntimeEvidence, type ContextRuntimeFreshness, type ContextRuntimeProvider, type EvidenceReport, type ContextSourceInventoryEntry, type ContextToolDefinition, type GraphPatch, type GraphRevision, type PlanningPack, type RehomeProposal } from '@context-compiler/core/sdk'
 import { createBuiltinLocalDistribution } from '@context-compiler/builtin-local'
 
 const execFileAsync = promisify(execFile)
@@ -61,7 +18,8 @@ const SERVER_INSTRUCTIONS = [
   'Major work should align with docs/architecture/super-data-network-goal.md, the Super Data Network goal.',
   'Start with get_context_health and get_context_manifest before broad repository exploration.',
   'Use the package-first path: list_context_packages, get_context_package, expand_context_package, and search_context_package as the first drill-down path.',
-  'After package drill-down, use list_package_corrections, get_correction_proposal, preview_correction_proposal, approve_correction_proposal, reject_correction_proposal, and apply_correction_proposal before low-level graph patch tools.',
+  'After package drill-down, inspect correction memory first with list_package_correction_decisions, get_package_correction_decision, replay_package_correction_decisions, and propose_package_correction_decision_revert.',
+  'Then use list_package_corrections, get_correction_proposal, preview_correction_proposal, approve_correction_proposal, reject_correction_proposal, and apply_correction_proposal before low-level graph patch tools.',
   'Use graph tools such as list_graph_scopes and expand_graph_target for low-level debugging after package context is identified.',
   'Use search_context, get_task_context, get_source_trace, and explain_capability for focused, evidence-backed context.',
   'Use refresh_context only when the compiled context is stale or missing.'
@@ -133,6 +91,31 @@ async function callRawContextTool(project: CompiledContextProject, name: string,
         packageRef: optionalStringInput(input, 'packageRef'),
         status: correctionStatusInput(input),
         kind: correctionKindInput(input)
+      })
+    case 'list_package_correction_decisions':
+      return listContextPackageCorrectionDecisions({
+        outputDir: project.outputDir,
+        packageRef: optionalStringInput(input, 'packageRef'),
+        status: sourceCorrectionDecisionStatusInput(input),
+        kind: correctionKindInput(input),
+        includeDrift: booleanInput(input, 'includeDrift')
+      })
+    case 'get_package_correction_decision':
+      return getContextPackageCorrectionDecision({ outputDir: project.outputDir, decisionId: stringInput(input, 'decisionId') })
+    case 'replay_package_correction_decisions':
+      return replayContextPackageCorrectionDecisions({
+        outputDir: project.outputDir,
+        decisionId: optionalStringInput(input, 'decisionId'),
+        packageRef: optionalStringInput(input, 'packageRef'),
+        dryRun: booleanInput(input, 'dryRun')
+      })
+    case 'propose_package_correction_decision_revert':
+      return proposeContextPackageCorrectionDecisionRevert({
+        outputDir: project.outputDir,
+        decisionId: stringInput(input, 'decisionId'),
+        actor: { type: 'agent', name: optionalStringInput(input, 'actor') ?? 'mcp' },
+        reason: optionalStringInput(input, 'reason'),
+        config: project.config
       })
     case 'get_correction_proposal':
       return getContextCorrectionProposal({ outputDir: project.outputDir, proposalId: stringInput(input, 'proposalId') })
@@ -894,6 +877,17 @@ function correctionStatusInput(input: Record<string, unknown>): ContextCorrectio
   }
   if (status !== 'proposed' && status !== 'approved' && status !== 'rejected' && status !== 'applied') {
     throw new Error('Invalid correction status. Expected proposed, approved, rejected, or applied.')
+  }
+  return status
+}
+
+function sourceCorrectionDecisionStatusInput(input: Record<string, unknown>): ContextSourceCorrectionDecisionStatus | undefined {
+  const status = optionalStringInput(input, 'status')
+  if (status === undefined) {
+    return undefined
+  }
+  if (status !== 'applied' && status !== 'superseded' && status !== 'reverted' && status !== 'invalid') {
+    throw new Error('Invalid source correction decision status. Expected applied, superseded, reverted, or invalid.')
   }
   return status
 }

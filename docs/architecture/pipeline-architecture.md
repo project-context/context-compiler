@@ -18,6 +18,15 @@ Kernel     = stable runtime that validates, orders, executes, and observes compo
 
 This distinction is the core of the architecture. A project may have dozens of available ingest components and many parse, link, validate, govern, compress, and emit components, but each pipeline loads only what the project or scenario needs.
 
+Pipeline stages are the execution structure. L0/L1/L2/L3 are the product and query mental model:
+
+- L0 packages describe the outside-in inventory of available materials.
+- L1 source groups describe buildable local boundaries inside packages.
+- L2 local graphs preserve evidence-rich facts for a group or scope.
+- L3 semantic supergraphs are future cross-group claims and relations derived from L2 evidence.
+
+The current compiler builds L0/L1 source modeling and L2 graph/runtime surfaces. L3 Claim Graph work is intentionally outside this boundary refactor.
+
 ## Stage Order
 
 ```txt
@@ -89,7 +98,7 @@ The kernel uses this metadata for planning, validation, documentation, caching, 
 
 ## Current Local Distribution
 
-`@context-compiler/distribution-local` registers the local MVP components and uses a source-aware auto planner as the default `compile` pipeline. For a project with Markdown, OpenAPI, and code sources it produces:
+`@context-compiler/builtin-local` registers the local MVP components and uses a source-aware auto planner as the default `compile` pipeline. For a project with Markdown, OpenAPI, and code sources it produces:
 
 ```txt
 ingest.local-files
@@ -107,5 +116,7 @@ ingest.local-files
 Official components have no kernel privilege. They are ordinary components bundled into the local distribution.
 
 The static local pipeline is kept as a manual fallback, but normal user config should only declare source boundaries. The compiler chooses parse, normalize, and enrichment components from those source types, then runs the shared graph, runtime-plan, and file emission stages.
+
+`ingest.local-files` is specifically a source-first local ingest adapter. It traverses local files, routes them to source records, and reads raw artifacts. The reusable source modeling logic for source inventory, L0 packages, L1 source groups, grouping/correction decisions, and source-first build units lives in `@context-compiler/core/source-model`.
 
 `compress.runtime-plan` infers the generated runtime layer from graph facts, context packs, indexes, inventory, and diagnostics. The default file emitter then serializes that plan into `.context/context-manifest.json`, generated indexes, MCP tool metadata and resources, project tool declarations, project skills, generated Codex/Claude/Cursor instructions, optional runtime provider declarations, `runtime/runtime-plan.json`, `runtime/agent-install-plan.json`, append-only runtime trace/run summary files, and `diagnostics/context-health.json`.

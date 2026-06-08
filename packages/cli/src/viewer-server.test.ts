@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { createContextNode, writeGraphFiles, type ContextGraph } from '@context-compiler/core'
+import { writeGraphFiles } from '@context-compiler/core/graph'
+import { createContextNode, type ContextGraph } from '@context-compiler/core/sdk'
 import { readContextViewerApi, resolveContextViewerStaticPath } from './viewer-server.js'
 
 describe('context graph inspector server', () => {

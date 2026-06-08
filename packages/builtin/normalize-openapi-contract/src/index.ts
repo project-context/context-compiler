@@ -1,4 +1,4 @@
-import { defineComponent, type ContextComponent, type NormalizedRecord } from '@context-compiler/core'
+import { defineComponent, type ContextComponent, type NormalizedRecord } from '@context-compiler/core/sdk'
 
 /** Create the OpenAPI contract normalizer. */
 export function createOpenApiContractNormalizeComponent(): ContextComponent {

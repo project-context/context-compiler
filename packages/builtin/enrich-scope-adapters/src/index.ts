@@ -1,23 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  buildGraphScopes,
-  createAdapterRegistry,
-  defineComponent,
-  ensureAdapterRuntimeStatus,
-  normalizeGraphBuildResult,
-  scopeDirName,
-  validateGraphBuildResult,
-  type ContextComponent,
-  type ContextGraph,
-  type ContextSourceInventory,
-  type ContextSourceInventoryEntry,
-  type GraphAdapter,
-  type GraphAdapterArtifact,
-  type AdapterRuntimeStatus,
-  type GraphBuildInput,
-  type RawArtifact
-} from '@context-compiler/core'
+import { buildGraphScopes, createAdapterRegistry, normalizeGraphBuildResult, scopeDirName, validateGraphBuildResult } from '@context-compiler/core/graph'
+import { defineComponent, ensureAdapterRuntimeStatus, type ContextComponent, type ContextGraph, type ContextSourceInventory, type ContextSourceInventoryEntry, type GraphAdapter, type GraphAdapterArtifact, type AdapterRuntimeStatus, type GraphBuildInput, type RawArtifact } from '@context-compiler/core/sdk'
 
 export interface ScopeAdaptersEnrichOptions {
   graphAdapters?: GraphAdapter[]

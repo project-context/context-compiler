@@ -14,6 +14,12 @@
     "baseUrl": ".",
     "paths": {
       "@context-compiler/core": ["packages/core/src/index.ts"],
+      "@context-compiler/core/sdk": ["packages/core/src/sdk/index.ts"],
+      "@context-compiler/core/kernel": ["packages/core/src/kernel/index.ts"],
+      "@context-compiler/core/graph": ["packages/core/src/graph/index.ts"],
+      "@context-compiler/core/source-model": ["packages/core/src/source-model/index.ts"],
+      "@context-compiler/core/runtime": ["packages/core/src/runtime/index.ts"],
+      "@context-compiler/core/compiler": ["packages/core/src/compiler/index.ts"],
       "@context-compiler/cli": ["packages/cli/src/index.ts"],
       "@context-compiler/builtin-local": ["packages/builtin/local/src/index.ts"],
       "@context-compiler/mcp-server": ["packages/mcp/server/src/index.ts"],

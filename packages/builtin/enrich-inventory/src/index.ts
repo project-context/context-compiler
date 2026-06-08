@@ -1,4 +1,4 @@
-import { defineComponent, type ContextComponent } from '@context-compiler/core'
+import { defineComponent, type ContextComponent } from '@context-compiler/core/sdk'
 
 /** Create a lightweight project inventory enrichment component. */
 export function createInventoryEnrichComponent(): ContextComponent {

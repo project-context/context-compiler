@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateContextExtensionManifest } from '@context-compiler/core'
+import { validateContextExtensionManifest } from '@context-compiler/core/sdk'
 import { doclingExtension } from '../../packages/extensions/document/parser-docling/src/index.js'
 import { unstructuredExtension } from '../../packages/extensions/document/parser-unstructured/src/index.js'
 import { microsoftGraphRagExtension } from '../../packages/extensions/knowledge/graph-microsoft-graphrag/src/index.js'

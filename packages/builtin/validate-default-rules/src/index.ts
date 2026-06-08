@@ -1,4 +1,4 @@
-import { createDiagnostic, defineComponent, primarySourceRef, type ContextComponent } from '@context-compiler/core'
+import { createDiagnostic, defineComponent, primarySourceRef, type ContextComponent } from '@context-compiler/core/sdk'
 
 /** Create default context quality validation rules. */
 export function createDefaultRulesValidateComponent(): ContextComponent {
