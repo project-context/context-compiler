@@ -9,9 +9,11 @@ import type {
   AdapterRuntimeRequirement,
   AdapterRuntimeStatus,
   ContextProgressEvent,
-  ContextProgressReporter,
+  ContextProgressReporter
+} from '../contracts/adapters.js'
+import type {
   Diagnostic
-} from '../contracts/index.js'
+} from '../contracts/graph.js'
 
 export interface ResolveAdapterRuntimeStatusOptions {
   adapterId: string

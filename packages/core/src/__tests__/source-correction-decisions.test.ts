@@ -3,9 +3,10 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { getContextCorrectionProposal, getContextPackageCorrectionDecision, listContextPackageCorrectionDecisions, proposeContextPackageCorrectionDecisionRevert, replayContextPackageCorrectionDecisions } from '@context-compiler/core/runtime'
+import { getContextCorrectionProposal, getContextPackageCorrectionDecision, listContextPackageCorrectionDecisions, proposeContextPackageCorrectionDecisionRevert, replayContextPackageCorrectionDecisions, type ContextSourceCorrectionDecision } from '@context-compiler/core/runtime'
 import { scopeIdForPackage, writeGraphFiles } from '@context-compiler/core/graph'
-import { createContextEdge, createContextNode, type ContextGraph, type ContextPackageRecord, type ContextSourceCorrectionDecision, type ContextSourceGroupRecord, type ContextSourceInventory, type GraphRevision } from '@context-compiler/core/sdk'
+import { type GraphRevision } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextPackageRecord, type ContextSourceGroupRecord, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const docRef = { sourceId: 'workspace', uri: 'file://sources/product-docs/product.md', location: { path: 'sources/product-docs/product.md' } }
 const codeRef = { sourceId: 'workspace', uri: 'file://sources/repo/src/upload.ts', location: { path: 'sources/repo/src/upload.ts' } }
@@ -114,7 +115,7 @@ describe('source correction decision memory', () => {
       decisions: [expect.objectContaining({ decision: expect.objectContaining({ id: 'SOURCE-CORRECTION-misc-temp', status: 'reverted' }) })]
     })
 
-    const beforeFile = await readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8')
+    const beforeFile = await readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8')
     const replay = await replayContextPackageCorrectionDecisions({ outputDir, packageRef: 'sources/product-docs' })
     expect(replay).toMatchObject({
       schemaVersion: 'context-source-correction-replay.v1',
@@ -133,7 +134,7 @@ describe('source correction decision memory', () => {
         expect.objectContaining({ decisionId: 'SOURCE-CORRECTION-docs-drift', type: 'missing_target_group' })
       ])
     })
-    await expect(readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8')).resolves.toBe(beforeFile)
+    await expect(readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8')).resolves.toBe(beforeFile)
 
     const revert = await proposeContextPackageCorrectionDecisionRevert({
       outputDir,
@@ -157,7 +158,7 @@ describe('source correction decision memory', () => {
         })
       })
     })
-    await expect(readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8')).resolves.toBe(beforeFile)
+    await expect(readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8')).resolves.toBe(beforeFile)
     const proposal = revert.proposal
     expect(proposal).toBeDefined()
     if (!proposal) {
@@ -258,12 +259,12 @@ function decision(
 }
 
 async function writeSources(outputDir: string, inventory: ContextSourceInventory): Promise<void> {
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeJsonl(join(outputDir, 'sources', 'inventory.jsonl'), inventory.entries)
-  await writeJsonl(join(outputDir, 'sources', 'groups.jsonl'), inventory.groups ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'packages.jsonl'), inventory.packages ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'build-units.jsonl'), [])
-  await writeFile(join(outputDir, 'sources', 'summary.json'), `${JSON.stringify(inventory.summary, null, 2)}\n`)
+  await mkdir(join(outputDir, 'model'), { recursive: true })
+  await writeJsonl(join(outputDir, 'model', 'source-inventory.jsonl'), inventory.entries)
+  await writeJsonl(join(outputDir, 'model', 'groups.jsonl'), inventory.groups ?? [])
+  await writeJsonl(join(outputDir, 'model', 'packages.jsonl'), inventory.packages ?? [])
+  await writeJsonl(join(outputDir, 'model', 'build-units.jsonl'), [])
+  await writeFile(join(outputDir, 'model', 'source-summary.json'), `${JSON.stringify(inventory.summary, null, 2)}\n`)
 }
 
 async function writeRevision(outputDir: string): Promise<void> {
@@ -277,13 +278,13 @@ async function writeRevision(outputDir: string): Promise<void> {
     patchIds: [],
     evidenceReportIds: []
   }
-  await mkdir(join(outputDir, 'graph', 'revisions'), { recursive: true })
-  await writeJsonl(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'), [revision])
+  await mkdir(join(outputDir, 'graph'), { recursive: true })
+  await writeJsonl(join(outputDir, 'graph', 'revisions.jsonl'), [revision])
 }
 
 async function writeSourceCorrections(outputDir: string, rows: ContextSourceCorrectionDecision[]): Promise<void> {
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeJsonl(join(outputDir, 'sources', 'correction-decisions.jsonl'), rows)
+  await mkdir(join(outputDir, 'state'), { recursive: true })
+  await writeJsonl(join(outputDir, 'state', 'source-correction-decisions.jsonl'), rows)
 }
 
 async function writeJsonl(path: string, rows: unknown[]): Promise<void> {

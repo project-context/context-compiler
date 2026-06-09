@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateContextExtensionManifest } from '@context-compiler/core/sdk'
+import { validateContextExtensionManifest } from '@context-compiler/core/extensions'
 import { doclingExtension } from '../../packages/extensions/document/parser-docling/src/index.js'
 import { unstructuredExtension } from '../../packages/extensions/document/parser-unstructured/src/index.js'
 import { microsoftGraphRagExtension } from '../../packages/extensions/knowledge/graph-microsoft-graphrag/src/index.js'
@@ -18,7 +18,7 @@ describe('optional extension packages', () => {
     expect(extensions.flatMap((extension) => validateContextExtensionManifest(extension))).toEqual([])
     expect(microsoftGraphRagExtension.adapters[0]?.manifest).toMatchObject({
       id: 'microsoft-graphrag.graph-adapter',
-      sourceGroupKinds: ['doc_bundle', 'analysis_bundle', 'domain_area']
+      sourceGroupKinds: ['doc_bundle', 'analysis_bundle', 'domain_area', 'test_bundle']
     })
     expect(codeGraphExtension.adapters[0]?.manifest).toMatchObject({
       id: 'codegraph.graph-adapter',

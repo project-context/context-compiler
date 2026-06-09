@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createGraphRevision } from '@context-compiler/core/kernel'
+import { createGraphRevision } from '@context-compiler/core/graph'
 import { createContextEdge, createContextNode, type ContextGraph } from '@context-compiler/core/sdk'
 import { buildScopeFeedbackEvidenceReports, createScopeFeedbackEvidenceComponent } from './index.js'
 

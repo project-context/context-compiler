@@ -249,7 +249,7 @@ export interface PlanningPack {
   drillDownTools: string[]
 }
 
-export type ContextGraphScopeKind = 'project' | 'package' | 'source_group' | 'file' | 'content'
+export type ContextGraphScopeKind = 'project' | 'package' | 'source_group' | 'build_graph' | 'file' | 'content'
 
 export type ContextGraphAdapterRole =
   | 'inventory'
@@ -481,6 +481,10 @@ export type ContextNodeType =
   | 'Repository'
   | 'Module'
   | 'Package'
+  | 'RepositoryGraph'
+  | 'SemanticCorpusGraph'
+  | 'ApiContractGraph'
+  | 'InventoryGraph'
   | 'Class'
   | 'Interface'
   | 'Enum'

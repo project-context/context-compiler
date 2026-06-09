@@ -3,12 +3,15 @@ import { execFile } from 'node:child_process'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { createContextEdge, createContextNode, defineComponent, type ContextPackageRecord, type ContextComponent, type ContextEdge, type ContextNode, type ContextSourceCorrectionDecision, type ContextSourceGroupCandidate, type ContextSourceGroupingDecision, type ContextSourceGroupingDecisions, type ContextSourceGroupingRequest, type ContextSourceGroupRecord, type ContextSourceInventory, type ContextSourceInventoryEntry, type ContextSourceRoute, type RawArtifact, type SourceConfig } from '@context-compiler/core/sdk'
+import { type SourceConfig } from '@context-compiler/core/config'
+import { createContextEdge, createContextNode, defineComponent, type ContextPackageRecord, type ContextComponent, type ContextEdge, type ContextNode, type ContextSourceGroupCandidate, type ContextSourceGroupingDecision, type ContextSourceGroupingDecisions, type ContextSourceGroupingRequest, type ContextSourceGroupRecord, type ContextSourceInventory, type ContextSourceInventoryEntry, type ContextSourceRoute, type RawArtifact } from '@context-compiler/core/sdk'
 import {
   applySourceCorrectionDecisions,
   buildInferredUnknownGroupingDecision,
+  buildTypedSourceGroupingDecision,
   buildL0Packages,
   buildSourceModelSeedGraph,
+  type ContextSourceCorrectionDecision,
   decisionPath,
   effectiveSourceCorrectionDecisionRows,
   groupingDecisionToSourceGroupRecord,
@@ -216,15 +219,28 @@ async function resolveSourceGrouping(
   sourcePath: string,
   entries: ContextSourceInventoryEntry[]
 ): Promise<{ groups: ContextSourceGroupRecord[]; request?: ContextSourceGroupingRequest }> {
-  if (!isAutoSource(source)) {
-    return { groups: [] }
-  }
   const sourceRootPath = normalizePath(relative(rootDir, sourcePath))
   const correctionDecisions = await readSourceCorrectionDecisions(outputDir)
   const applyCorrections = (groups: ContextSourceGroupRecord[]) =>
     applySourceCorrectionDecisions({ groups, decisions: correctionDecisions, sourceRootPath, source, rootDir })
+  if (!isAutoSource(source)) {
+    const decision = buildTypedSourceGroupingDecision(source, sourceRootPath, entries)
+    return {
+      groups: applyCorrections([groupingDecisionToSourceGroupRecord({ source, rootDir, decision, decisionSource: 'typed-source' })])
+    }
+  }
   const decisions = await readGroupingDecisions(outputDir)
   const sourceDecisions = decisions?.decisions.filter((decision) => pathWithin(decisionPath(decision), sourceRootPath)) ?? []
+  if (decisions?.agent === 'inferred' && sourceDecisions.length > 0) {
+    const request = buildGroupingRequest(source, sourceRootPath, entries)
+    await writeGroupingRequest(outputDir, request)
+    const inferredDecisions = buildInferredGroupingDecisions(sourceRootPath, entries, request)
+    await replaceGroupingDecisionsForSource(outputDir, decisions, sourceRootPath, inferredDecisions, 'inferred')
+    return {
+      groups: applyCorrections(inferredDecisions.map((decision) => groupingDecisionToSourceGroupRecord({ source, rootDir, decision, decisionSource: 'inferred' }))),
+      request
+    }
+  }
   if (sourceDecisions.length === 0) {
     const request = buildGroupingRequest(source, sourceRootPath, entries)
     await writeGroupingRequest(outputDir, request)
@@ -242,15 +258,10 @@ async function resolveSourceGrouping(
         request
       }
     }
-    const fallback = buildInferredUnknownGroupingDecision(sourceRootPath)
-    await writeGroupingDecisions(outputDir, {
-      schemaVersion: 'context-source-grouping-decisions.v1',
-      generatedAt: new Date().toISOString(),
-      agent: 'inferred',
-      decisions: [fallback]
-    })
+    const fallbackDecisions = buildInferredGroupingDecisions(sourceRootPath, entries, request)
+    await replaceGroupingDecisionsForSource(outputDir, decisions, sourceRootPath, fallbackDecisions, 'inferred')
     return {
-      groups: applyCorrections([groupingDecisionToSourceGroupRecord({ source, rootDir, decision: fallback, decisionSource: 'inferred' })]),
+      groups: applyCorrections(fallbackDecisions.map((decision) => groupingDecisionToSourceGroupRecord({ source, rootDir, decision, decisionSource: 'inferred' }))),
       request
     }
   }
@@ -302,6 +313,49 @@ function uncoveredFallbackPath(sourceRootPath: string, entryPath: string): strin
   const relativePath = normalizedEntry.slice(normalizedRoot.length + 1)
   const [firstSegment] = relativePath.split('/').filter(Boolean)
   return firstSegment ? `${normalizedRoot}/${firstSegment}` : normalizedRoot
+}
+
+function buildInferredGroupingDecisions(
+  sourceRootPath: string,
+  entries: ContextSourceInventoryEntry[],
+  request: ContextSourceGroupingRequest
+): ContextSourceGroupingDecision[] {
+  const candidates = request.sources.flatMap((source) => source.candidates)
+  const rootCandidate = candidates.find((candidate) => normalizeConfiguredPath(candidate.path) === normalizeConfiguredPath(sourceRootPath))
+  const childCandidates = candidates
+    .filter((candidate) => isImmediateChildCandidate(candidate.path, sourceRootPath))
+    .filter((candidate) => candidate.suggestedKind !== 'unknown')
+    .sort((left, right) => left.path.localeCompare(right.path))
+  const hasDirectRootEntries = entries.some((entry) => normalizeConfiguredPath(dirname(entry.path)) === normalizeConfiguredPath(sourceRootPath) || normalizeConfiguredPath(entry.path) === normalizeConfiguredPath(sourceRootPath))
+
+  if (!hasDirectRootEntries && childCandidates.length > 0) {
+    return childCandidates.map(candidateToInferredDecision)
+  }
+  if (rootCandidate) {
+    return [candidateToInferredDecision(rootCandidate)]
+  }
+  return [buildInferredUnknownGroupingDecision(sourceRootPath)]
+}
+
+function candidateToInferredDecision(candidate: ContextSourceGroupCandidate): ContextSourceGroupingDecision {
+  return {
+    path: candidate.path,
+    kind: candidate.suggestedKind,
+    boundaryMode: candidate.suggestedBoundaryMode,
+    title: candidate.title,
+    summary: `Inferred ${candidate.suggestedKind.replace(/_/g, ' ')} source group from ${candidate.fileCount} file${candidate.fileCount === 1 ? '' : 's'}.`,
+    childrenPolicy: candidate.suggestedKind === 'repository' || candidate.suggestedKind === 'doc_bundle' || candidate.suggestedKind === 'api_bundle' || candidate.suggestedKind === 'test_bundle' ? 'promote_routed' : 'promote_none',
+    confidence: candidate.confidence
+  }
+}
+
+function isImmediateChildCandidate(path: string, rootPath: string): boolean {
+  const normalizedPath = normalizeConfiguredPath(path)
+  const normalizedRoot = normalizeConfiguredPath(rootPath)
+  if (!normalizedPath.startsWith(`${normalizedRoot}/`)) {
+    return false
+  }
+  return normalizedPath.slice(normalizedRoot.length + 1).split('/').filter(Boolean).length === 1
 }
 
 async function resolveGroupingDecisionsWithAgent(
@@ -440,8 +494,26 @@ async function writeGroupingDecisions(outputDir: string, decisions: ContextSourc
     agent: decisions.agent ?? 'claude',
     decisions: mergeDecisions(existing?.decisions ?? [], decisions.decisions)
   }
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeFile(join(outputDir, 'sources', 'grouping-decisions.json'), `${JSON.stringify(merged, null, 2)}\n`)
+  await mkdir(join(outputDir, 'state'), { recursive: true })
+  await writeFile(join(outputDir, 'state', 'grouping-decisions.json'), `${JSON.stringify(merged, null, 2)}\n`)
+}
+
+async function replaceGroupingDecisionsForSource(
+  outputDir: string,
+  existing: ContextSourceGroupingDecisions | undefined,
+  sourceRootPath: string,
+  incoming: ContextSourceGroupingDecision[],
+  agent: string
+): Promise<void> {
+  const retainedDecisions = (existing?.decisions ?? []).filter((decision) => !pathWithin(decisionPath(decision), sourceRootPath))
+  const next: ContextSourceGroupingDecisions = {
+    schemaVersion: 'context-source-grouping-decisions.v1',
+    generatedAt: new Date().toISOString(),
+    agent,
+    decisions: mergeDecisions(retainedDecisions, incoming)
+  }
+  await mkdir(join(outputDir, 'state'), { recursive: true })
+  await writeFile(join(outputDir, 'state', 'grouping-decisions.json'), `${JSON.stringify(next, null, 2)}\n`)
 }
 
 function mergeDecisions(
@@ -456,8 +528,8 @@ function mergeDecisions(
 }
 
 async function writeGroupingAgentStatus(outputDir: string, status: Record<string, unknown>): Promise<void> {
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeFile(join(outputDir, 'sources', 'grouping-agent-status.json'), `${JSON.stringify(status, null, 2)}\n`)
+  await mkdir(join(outputDir, 'state'), { recursive: true })
+  await writeFile(join(outputDir, 'state', 'grouping-agent-status.json'), `${JSON.stringify(status, null, 2)}\n`)
 }
 
 function groupingAgentMode(source: SourceConfig): GroupingAgentMode {
@@ -487,15 +559,22 @@ function groupingAgentTimeoutMs(source: SourceConfig): number {
 
 async function readGroupingDecisions(outputDir: string): Promise<ContextSourceGroupingDecisions | undefined> {
   try {
-    return JSON.parse(await readFile(join(outputDir, 'sources', 'grouping-decisions.json'), 'utf8')) as ContextSourceGroupingDecisions
+    return JSON.parse(await readFile(join(outputDir, 'state', 'grouping-decisions.json'), 'utf8')) as ContextSourceGroupingDecisions
   } catch {
-    return undefined
+    try {
+      return JSON.parse(await readFile(join(outputDir, 'sources', 'grouping-decisions.json'), 'utf8')) as ContextSourceGroupingDecisions
+    } catch {
+      return undefined
+    }
   }
 }
 
 async function readSourceCorrectionDecisions(outputDir: string): Promise<ContextSourceCorrectionDecision[]> {
   try {
-    const rows = (await readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8'))
+    const content = await readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8').catch(() =>
+      readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8')
+    )
+    const rows = content
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
@@ -543,8 +622,8 @@ async function delay(ms: number): Promise<void> {
 }
 
 async function writeGroupingRequest(outputDir: string, request: ContextSourceGroupingRequest): Promise<void> {
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeFile(join(outputDir, 'sources', 'grouping-request.json'), `${JSON.stringify(request, null, 2)}\n`)
+  await mkdir(join(outputDir, 'model'), { recursive: true })
+  await writeFile(join(outputDir, 'model', 'grouping-request.json'), `${JSON.stringify(request, null, 2)}\n`)
 }
 
 function buildGroupingRequest(source: SourceConfig, rootPath: string, entries: ContextSourceInventoryEntry[]): ContextSourceGroupingRequest {
@@ -626,16 +705,17 @@ function suggestedKindForMarkers(markers: Set<string>): ContextSourceGroupRecord
   if (markers.has('generated')) return 'generated_bundle'
   if (markers.has('vendor')) return 'vendor_bundle'
   if (markers.has('repository')) return 'repository'
-  if (markers.has('domain')) return 'domain_area'
-  if (markers.has('runtime')) return 'runtime_bundle'
-  if (markers.has('config')) return 'config_bundle'
   if (markers.has('test')) return 'test_bundle'
-  if (markers.has('design')) return 'design_bundle'
   if (markers.has('api') || markers.has('openapi')) return 'api_bundle'
+  if (markers.has('design')) return 'design_bundle'
+  if (markers.has('config')) return 'config_bundle'
+  if (markers.has('runtime')) return 'runtime_bundle'
+  if (markers.has('domain')) return 'domain_area'
   if (markers.has('data')) return 'data_bundle'
   if (markers.has('analysis')) return 'analysis_bundle'
   if (markers.has('markdown')) return 'doc_bundle'
   if (markers.has('asset')) return 'asset_bundle'
+  if (markers.has('code')) return 'repository'
   if (markers.has('archive')) return 'archive'
   return 'unknown'
 }
@@ -650,7 +730,8 @@ function pathMarkers(path: string): string[] {
     if (['analysis', 'analytics', 'report', 'reports', 'research', 'survey', 'surveys'].includes(normalized)) markers.add('analysis')
     if (['data', 'dataset', 'datasets', 'sampledata', 'fixtures', 'seed', 'seeds'].includes(normalized)) markers.add('data')
     if (['design', 'designs', 'ui', 'ux', 'figma', 'wireframe', 'wireframes', 'mockup', 'mockups'].includes(normalized)) markers.add('design')
-    if (['test', 'tests', 'testing', 'qa', 'spec', 'specs', 'e2e'].includes(normalized)) markers.add('test')
+    if (['test', 'tests', 'testing', 'testcase', 'testcases', 'case', 'cases', 'qa', 'spec', 'specs', 'e2e'].includes(normalized)) markers.add('test')
+    if (['code', 'sourcecode', 'src'].includes(normalized)) markers.add('code')
     if (['config', 'configs', 'configuration', 'settings', 'deploy', 'deployment', 'ci', 'ops'].includes(normalized)) markers.add('config')
     if (['runtime', 'metrics', 'metric', 'logs', 'log', 'monitoring', 'observability', 'telemetry'].includes(normalized)) markers.add('runtime')
     if (['vendor', 'vendors', 'thirdparty', 'thirdparties', 'external', 'sdk', 'sdks'].includes(normalized)) markers.add('vendor')

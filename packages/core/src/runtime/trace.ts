@@ -3,11 +3,13 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type {
   ContextRuntimeTraceEvent,
-  ContextSourceInventory,
   ContextSourceFingerprint,
-  Diagnostic,
+} from '../contracts/runtime.js'
+import type { ContextSourceInventory } from '../contracts/sources.js'
+import type { Diagnostic } from '../contracts/graph.js'
+import type {
   RawArtifact
-} from '../contracts/index.js'
+} from '../contracts/adapters.js'
 
 export interface ContextFingerprintCheck {
   status: 'fresh' | 'stale'

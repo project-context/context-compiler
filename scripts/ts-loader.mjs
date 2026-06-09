@@ -6,8 +6,9 @@ import ts from 'typescript'
 const rootDir = dirname(fileURLToPath(new URL('../package.json', import.meta.url)))
 
 const aliases = new Map([
-  ['@context-compiler/core', 'packages/core/src/index.ts'],
   ['@context-compiler/core/sdk', 'packages/core/src/sdk/index.ts'],
+  ['@context-compiler/core/config', 'packages/core/src/config/index.ts'],
+  ['@context-compiler/core/extensions', 'packages/core/src/extensions/index.ts'],
   ['@context-compiler/core/kernel', 'packages/core/src/kernel/index.ts'],
   ['@context-compiler/core/graph', 'packages/core/src/graph/index.ts'],
   ['@context-compiler/core/source-model', 'packages/core/src/source-model/index.ts'],

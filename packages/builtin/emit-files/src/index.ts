@@ -1,8 +1,11 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { buildRuntimeTraceEvent, buildSourceFingerprints, buildSourceFingerprintsFromInventory, buildContextRuntimeWorkspace, writeContextRuntimeWorkspace } from '@context-compiler/core/runtime'
+import { type ContextRuntimePlan, type OutputArtifact } from '@context-compiler/core/runtime'
+import { type AdapterRuntimeStatus } from '@context-compiler/core/extensions'
 import { ensureGraphFactProvenance, writeGraphFiles } from '@context-compiler/core/graph'
-import { defineComponent, type ContextComponent, type EvidenceReport, type ContextSourceInventory, type ContextRuntimePlan, type AdapterRuntimeStatus, type OutputArtifact } from '@context-compiler/core/sdk'
+import { type EvidenceReport } from '@context-compiler/core/graph'
+import { defineComponent, type ContextComponent, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 /** Create the default file emitter for `.context` artifacts. */
 export function createFilesEmitComponent(): ContextComponent {
@@ -31,7 +34,6 @@ export function createFilesEmitComponent(): ContextComponent {
       ])
       const graph = ensureGraphFactProvenance(state.graph)
       await writeGraphFiles(graph, context.outputDir, { sourceInventory })
-      await writePacks(state, context.outputDir)
       const runtimeWorkspace = buildContextRuntimeWorkspace(graph, context.config, state.packs, {
         pipelineId: context.pipelineId,
         plan: runtimePlan,
@@ -44,19 +46,21 @@ export function createFilesEmitComponent(): ContextComponent {
         pipeline: context.pipelineId,
         sourceFingerprints,
 	        diagnostics: runtimeWorkspace.plan.diagnostics,
-	        emittedArtifacts: [
-	          '.context/manifest.json',
-	          '.context/sources/inventory.jsonl',
-          '.context/sources/routes.jsonl',
-          '.context/sources/unsupported.jsonl',
-          '.context/sources/summary.json',
-          '.context/sources/packages.jsonl',
-          '.context/sources/build-units.jsonl',
-          '.context/graph/global/nodes.jsonl',
-          '.context/graph/global/edges.jsonl',
+        emittedArtifacts: [
+          '.context/manifest.json',
+          '.context/health.json',
+          '.context/model/source-inventory.jsonl',
+          '.context/model/source-routes.jsonl',
+          '.context/model/unsupported-sources.jsonl',
+          '.context/model/source-summary.json',
+          '.context/model/packages.jsonl',
+          '.context/model/build-units.jsonl',
+          '.context/store/source-map.jsonl',
+          '.context/graph/nodes.jsonl',
+          '.context/graph/edges.jsonl',
           '.context/graph/evidence-reports.jsonl',
           '.context/graph/scopes/manifest.json',
-          '.context/indexes/manifest.json',
+          '.context/index/manifest.json',
           '.context/runtime/runtime.config.json',
           '.context/runtime/runtime-plan.json',
           '.context/runtime/agent-install-plan.json',
@@ -114,17 +118,6 @@ async function writeRuntimeTrace(
       2
     )}\n`
   )
-}
-
-async function writePacks(state: Parameters<NonNullable<ContextComponent['process']>>[0], outputDir: string): Promise<void> {
-  const viewsDir = join(outputDir, 'views')
-  await rm(viewsDir, { recursive: true, force: true })
-  await mkdir(viewsDir, { recursive: true })
-  for (const pack of state.packs) {
-    if (pack.kind === 'context-view' && pack.view) {
-      await writeFile(join(viewsDir, `${pack.view}.md`), pack.content)
-    }
-  }
 }
 
 function isRuntimePlan(value: unknown): value is ContextRuntimePlan {

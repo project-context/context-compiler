@@ -1,13 +1,22 @@
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { cp, readFile, mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { basename, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
+import { installMockGraphRagRuntimeHooks } from './mock-graphrag.js'
+
+installMockGraphRagRuntimeHooks()
 
 const rootDir = process.cwd()
 
 describe('examples', () => {
   it('runs the local-shop example through the default pipeline', async () => {
-    const cwd = join(rootDir, 'examples', 'local-shop')
+    const fixtureDir = join(rootDir, 'examples', 'local-shop')
+    const cwd = join(await mkdtemp(join(tmpdir(), 'context-local-shop-example-')), 'local-shop')
+    await cp(fixtureDir, cwd, {
+      recursive: true,
+      filter: (path) => basename(path) !== '.context'
+    })
 
     await expect(readFile(join(cwd, 'sources', 'product-docs', 'refund.md'), 'utf8')).resolves.toContain(
       'REQ-ORDER-REFUND-001'
@@ -25,16 +34,16 @@ describe('examples', () => {
     expect(config.project).toBeUndefined()
     expect(config.roles).toBeUndefined()
     expect(config.runtime).toBeUndefined()
-    expect(config.sources.map((source) => source.path)).toEqual([
-      './sources/product-docs',
-      './sources/test-cases',
-      './sources/api-spec/openapi.yaml',
-      './sources/source-code'
-    ])
+    expect(config.sources.map((source) => source.path)).toEqual(['./sources'])
 
     const compile = await runCli(['compile'], { cwd })
     expect(compile.exitCode).toBe(0)
     expect(compile.stdout).toContain('Compiled')
+    const sourceSummary = JSON.parse(await readFile(join(cwd, '.context', 'model', 'source-summary.json'), 'utf8')) as {
+      packages: number
+      groups: number
+    }
+    expect(sourceSummary).toMatchObject({ packages: 4, groups: 4 })
 
     const query = await runCli(['query', 'refund'], { cwd })
     expect(query.stdout).toContain('REQ-ORDER-REFUND-001')

@@ -3,6 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
+import { installMockGraphRagRuntimeHooks } from './mock-graphrag.js'
+
+installMockGraphRagRuntimeHooks()
 
 async function writeIntegrationProject(rootDir: string) {
   await mkdir(join(rootDir, 'docs', 'product'), { recursive: true })
@@ -31,14 +34,14 @@ domain: order
 }
 
 describe('agent integration command', () => {
-  it('installs Codex and Claude native project files without overwriting user instructions', async () => {
+  it('installs Codex, Claude, and OpenCode native project files without overwriting user instructions', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-agent-integration-'))
     await writeIntegrationProject(rootDir)
     await expect(runCli(['compile'], { cwd: rootDir })).resolves.toMatchObject({ exitCode: 0 })
 
     const first = await runCli(['integrate', 'all'], { cwd: rootDir })
     expect(first.exitCode).toBe(0)
-    expect(first.stdout).toContain('Integrated agents: codex, claude')
+    expect(first.stdout).toContain('Integrated agents: codex, claude, opencode')
     expect(first.stdout).toContain('Install status: installed')
 
     const second = await runCli(['integrate', 'all'], { cwd: rootDir })
@@ -47,12 +50,16 @@ describe('agent integration command', () => {
     const agents = await readFile(join(rootDir, 'AGENTS.md'), 'utf8')
     expect(agents).toContain('# Human guidance')
     expect(agents).toContain('Keep this section.')
-    expect(agents).toContain('.context/views/project.md')
+    expect(agents).toContain('.context/debug/views/project.md')
     expect(agents.match(/BEGIN context-compiler:codex/g)).toHaveLength(1)
 
     const claude = await readFile(join(rootDir, 'CLAUDE.md'), 'utf8')
     expect(claude).toContain('@AGENTS.md')
     expect(claude.match(/BEGIN context-compiler:claude/g)).toHaveLength(1)
+
+    const opencode = await readFile(join(rootDir, 'opencode.json'), 'utf8')
+    expect(opencode).toContain('AGENTS.md')
+    expect(opencode).toContain('Context Compiler MCP')
 
     const codexConfig = await readFile(join(rootDir, '.codex', 'config.toml'), 'utf8')
     expect(codexConfig).toContain('[mcp_servers.context_compiler]')

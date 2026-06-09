@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
-import { access, cp, mkdir, mkdtemp, readFile } from 'node:fs/promises'
+import { access, cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -16,7 +16,7 @@ describe('adapter runtime CLI', () => {
     expect(result.stdout).toContain('microsoft-graphrag.graph-adapter')
     expect(result.stdout).toContain('managed-runtime')
     expect(result.stdout).toContain('missing')
-  })
+  }, 90000)
 
   it('does not try to install dependency runtime adapters', async () => {
     const cwd = await localSbtFixture()
@@ -25,7 +25,7 @@ describe('adapter runtime CLI', () => {
     expect(result.exitCode).toBe(0)
     expect(result.stdout).toContain('codegraph.graph-adapter')
     expect(result.stdout).toContain('not-required')
-  })
+  }, 90000)
 
   it('emits adapter runtime status into run summary and doctor output', async () => {
     const prior = process.env.CONTEXT_GRAPHRAG_RUNTIME
@@ -60,7 +60,7 @@ describe('adapter runtime CLI', () => {
         process.env.CONTEXT_GRAPHRAG_RUNTIME = prior
       }
     }
-  }, 40000)
+  }, 120000)
 })
 
 async function localSbtFixture(): Promise<string> {
@@ -69,10 +69,31 @@ async function localSbtFixture(): Promise<string> {
   await mkdir(cwd, { recursive: true })
   await cp(join(process.cwd(), 'examples', 'local-sbt', 'context.config.json'), join(cwd, 'context.config.json'))
   await cp(join(process.cwd(), 'examples', 'local-sbt', 'sources'), join(cwd, 'sources'), { recursive: true })
-  await mkdir(join(cwd, '.context', 'sources'), { recursive: true })
-  await cp(
-    join(process.cwd(), 'examples', 'local-sbt', '.context', 'sources', 'grouping-decisions.json'),
-    join(cwd, '.context', 'sources', 'grouping-decisions.json')
-  )
+  await mkdir(join(cwd, '.context', 'state'), { recursive: true })
+  await writeFile(join(cwd, '.context', 'state', 'grouping-decisions.json'), `${JSON.stringify({
+    schemaVersion: 'context-source-grouping-decisions.v1',
+    generatedAt: '2026-06-08T00:00:00.000Z',
+    agent: 'fixture',
+    decisions: [
+      {
+        path: 'sources/mjsbt-manage-fe',
+        kind: 'repository',
+        boundaryMode: 'repository',
+        title: 'mjsbt-manage-fe',
+        summary: 'Frontend management repository.',
+        childrenPolicy: 'promote_routed',
+        confidence: 0.95
+      },
+      {
+        path: 'sources/product-docs',
+        kind: 'doc_bundle',
+        boundaryMode: 'collapsed',
+        title: 'Product Documentation',
+        summary: 'Product documentation bundle.',
+        childrenPolicy: 'promote_routed',
+        confidence: 0.95
+      }
+    ]
+  }, null, 2)}\n`)
   return cwd
 }

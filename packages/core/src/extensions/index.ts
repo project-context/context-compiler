@@ -1,12 +1,44 @@
 import type {
+  AdapterRuntimeCommand,
+  AdapterRuntimeEcosystem,
+  AdapterRuntimeInstallPlan,
+  AdapterRuntimeMode,
+  AdapterRuntimeRequirement,
+  AdapterRuntimeState,
+  AdapterRuntimeStatus,
   ContextExtensionAdapterBinding,
   ContextExtensionAdapterKind,
   ContextExtensionCategory,
   ContextExtensionManifest,
+  ContextProgressEvent,
+  ContextProgressReporter,
+  DocumentExtractorAdapterManifest,
+  GraphAdapterManifest,
+  SourceParserAdapterManifest
+} from '../contracts/adapters.js'
+import type {
   Diagnostic
-} from '../contracts/index.js'
+} from '../contracts/graph.js'
 
 export * from './runtime-manager.js'
+export type {
+  AdapterRuntimeCommand,
+  AdapterRuntimeEcosystem,
+  AdapterRuntimeInstallPlan,
+  AdapterRuntimeMode,
+  AdapterRuntimeRequirement,
+  AdapterRuntimeState,
+  AdapterRuntimeStatus,
+  ContextExtensionAdapterBinding,
+  ContextExtensionAdapterKind,
+  ContextExtensionCategory,
+  ContextExtensionManifest,
+  ContextProgressEvent,
+  ContextProgressReporter,
+  DocumentExtractorAdapterManifest,
+  GraphAdapterManifest,
+  SourceParserAdapterManifest
+} from '../contracts/adapters.js'
 
 const EXTENSION_CATEGORIES = new Set<ContextExtensionCategory>(['document', 'knowledge', 'code', 'runtime', 'source', 'custom'])
 const ADAPTER_KINDS = new Set<ContextExtensionAdapterKind>(['source-parser', 'document-extractor', 'graph-adapter'])

@@ -142,8 +142,10 @@ describe('scope drill-down runtime', () => {
       budget: expect.objectContaining({ mode: 'summary', nodes: 3, edges: 4 }),
       relatedScopes: expect.arrayContaining([expect.objectContaining({ id: repoScopeId })])
     })
-    expect(scope.nodes.map((node) => node.type)).toEqual(expect.arrayContaining(['SourceGroup', 'Requirement', 'File']))
+    expect(scope.nodes.map((node) => node.type)).toEqual(expect.arrayContaining(['SourceGroup', 'SemanticCorpusGraph']))
+    expect(scope.nodes.map((node) => node.type)).not.toEqual(expect.arrayContaining(['Requirement', 'File', 'CodeSymbol']))
     expect(scope.nodes.some((node) => node.type === 'SourceSnapshot')).toBe(false)
+    expect(scope.childScopes).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'build_graph', parentScopeId: docScopeId })]))
     expect(scope.nextActions).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'open_scope', targetId: repoScopeId })]))
 
     const groupExpansion = await expandGraphTarget({ outputDir, targetId: 'SOURCE-GROUP-docs' })

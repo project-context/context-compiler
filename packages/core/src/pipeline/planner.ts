@@ -1,4 +1,4 @@
-import { PIPELINE_STAGES, type ContextComponent, type PipelineDefinition, type PipelineStage } from '../contracts/index.js'
+import { PIPELINE_STAGES, type ContextComponent, type PipelineDefinition, type PipelineStage } from '../contracts/pipeline.js'
 import { ComponentRegistry } from './registry.js'
 
 /** Executable plan produced by resolving a pipeline definition against a registry. */

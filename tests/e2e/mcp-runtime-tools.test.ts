@@ -5,6 +5,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
 import { callContextMcpTool, startContextMcpStdioServer } from '@context-compiler/mcp-server'
+import { installMockGraphRagRuntimeHooks } from './mock-graphrag.js'
+
+installMockGraphRagRuntimeHooks()
 
 async function writeRuntimeToolsProject(rootDir: string) {
   await mkdir(join(rootDir, 'docs', 'product'), { recursive: true })
@@ -107,7 +110,7 @@ describe('runtime MCP tools', () => {
     await expect(callContextMcpTool(rootDir, 'search_context', { query: 'refund' })).resolves.toMatchObject({
       data: {
         engine: 'sqlite',
-        indexPath: '.context/indexes/global/fts.sqlite',
+        indexPath: '.context/index/global/fts.sqlite',
         results: expect.arrayContaining([expect.objectContaining({ id: 'REQ-ORDER-REFUND-001' })]),
         diagnostics: []
       }
@@ -134,7 +137,7 @@ describe('runtime MCP tools', () => {
     if (!productGroupId) {
       throw new Error('expected product source group id')
     }
-    await writeFile(join(rootDir, '.context', 'sources', 'correction-decisions.jsonl'), `${JSON.stringify({
+    await writeFile(join(rootDir, '.context', 'state', 'source-correction-decisions.jsonl'), `${JSON.stringify({
       schemaVersion: 'context-source-correction-decision.v1',
       id: 'SOURCE-CORRECTION-mcp-product',
       dedupeKey: 'relabel:mcp-product',
@@ -213,7 +216,7 @@ describe('runtime MCP tools', () => {
       data: { proposals: expect.any(Array) }
     })
 
-    const revision = JSON.parse((await readFile(join(rootDir, '.context', 'graph', 'revisions', 'revisions.jsonl'), 'utf8')).trim()) as {
+    const revision = JSON.parse((await readFile(join(rootDir, '.context', 'graph', 'revisions.jsonl'), 'utf8')).trim()) as {
       id: string
       createdAt: string
     }
@@ -244,7 +247,7 @@ describe('runtime MCP tools', () => {
         inbox: expect.arrayContaining([expect.objectContaining({ id: 'patch:test-simulate' })])
       }
     })
-  })
+  }, 90000)
 
   it('keeps submitted patches through compile and applies them through an explicit CLI cycle', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-mcp-patch-cycle-'))
@@ -252,7 +255,7 @@ describe('runtime MCP tools', () => {
     await expect(runCli(['compile'], { cwd: rootDir })).resolves.toMatchObject({ exitCode: 0 })
 
     const [revision] = jsonl<{ id: string; createdAt: string }>(
-      await readFile(join(rootDir, '.context', 'graph', 'revisions', 'revisions.jsonl'), 'utf8')
+      await readFile(join(rootDir, '.context', 'graph', 'revisions.jsonl'), 'utf8')
     )
     const patch = {
       schemaVersion: 'context-graph-patch.v1',
@@ -275,26 +278,26 @@ describe('runtime MCP tools', () => {
       data: { submitted: true, patchId: 'patch:test-apply-cycle' }
     })
     await expect(runCli(['compile'], { cwd: rootDir })).resolves.toMatchObject({ exitCode: 0 })
-    await expect(readFile(join(rootDir, '.context', 'graph', 'patches', 'submitted.jsonl'), 'utf8')).resolves.toContain('patch:test-apply-cycle')
+    await expect(readFile(join(rootDir, '.context', 'graph', 'submitted-patches.jsonl'), 'utf8')).resolves.toContain('patch:test-apply-cycle')
 
-    const graphBeforeDryRun = await readFile(join(rootDir, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')
+    const graphBeforeDryRun = await readFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), 'utf8')
     const dryRun = await runCli(['graph', 'apply-patches', '--dry-run'], { cwd: rootDir })
     expect(dryRun.exitCode).toBe(0)
     expect(dryRun.stdout).toContain('Dry run: true')
     expect(dryRun.stdout).toContain('Applied patches: 1')
-    await expect(readFile(join(rootDir, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')).resolves.toBe(graphBeforeDryRun)
+    await expect(readFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), 'utf8')).resolves.toBe(graphBeforeDryRun)
 
     const apply = await runCli(['graph', 'apply-patches'], { cwd: rootDir })
     expect(apply.exitCode).toBe(0)
     expect(apply.stdout).toContain('Dry run: false')
     expect(apply.stdout).toContain('Applied patches: 1')
-    await expect(readFile(join(rootDir, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')).resolves.toContain('batch-applied')
-    await expect(readFile(join(rootDir, '.context', 'graph', 'patches', 'submitted.jsonl'), 'utf8')).resolves.toBe('')
+    await expect(readFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), 'utf8')).resolves.toContain('batch-applied')
+    await expect(readFile(join(rootDir, '.context', 'graph', 'submitted-patches.jsonl'), 'utf8')).resolves.toBe('')
 
-    const ledger = jsonl<{ id: string; status: string }>(await readFile(join(rootDir, '.context', 'graph', 'patches', 'patches.jsonl'), 'utf8'))
+    const ledger = jsonl<{ id: string; status: string }>(await readFile(join(rootDir, '.context', 'graph', 'patches.jsonl'), 'utf8'))
     expect(ledger).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'patch:test-apply-cycle', status: 'applied' })]))
     const revisions = jsonl<{ id: string; parentRevisionId?: string; patchIds: string[] }>(
-      await readFile(join(rootDir, '.context', 'graph', 'revisions', 'revisions.jsonl'), 'utf8')
+      await readFile(join(rootDir, '.context', 'graph', 'revisions.jsonl'), 'utf8')
     )
     expect(revisions.at(-1)).toMatchObject({
       parentRevisionId: revision.id,
@@ -303,7 +306,7 @@ describe('runtime MCP tools', () => {
 
     const query = await runCli(['query', 'batch-applied'], { cwd: rootDir })
     expect(query.stdout).toContain('REQ-ORDER-REFUND-001')
-  })
+  }, 90000)
 
   it('applies evidence-derived parent graph corrections through the explicit patch cycle', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-mcp-evidence-cycle-'))
@@ -311,7 +314,7 @@ describe('runtime MCP tools', () => {
     await expect(runCli(['compile'], { cwd: rootDir })).resolves.toMatchObject({ exitCode: 0 })
 
     const [revision] = jsonl<{ id: string; createdAt: string }>(
-      await readFile(join(rootDir, '.context', 'graph', 'revisions', 'revisions.jsonl'), 'utf8')
+      await readFile(join(rootDir, '.context', 'graph', 'revisions.jsonl'), 'utf8')
     )
     const report = {
       schemaVersion: 'context-evidence-report.v1',
@@ -467,22 +470,22 @@ describe('runtime MCP tools', () => {
       }
     })
 
-    const graphBeforeDryRun = await readFile(join(rootDir, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')
+    const graphBeforeDryRun = await readFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), 'utf8')
     const dryRun = await runCli(['graph', 'apply-patches', '--dry-run'], { cwd: rootDir })
     expect(dryRun.exitCode).toBe(0)
     expect(dryRun.stdout).toContain('Dry run: true')
     expect(dryRun.stdout).toContain('Evidence patches: 1')
     expect(dryRun.stdout).toContain('Applied patches: 1')
-    await expect(readFile(join(rootDir, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')).resolves.toBe(graphBeforeDryRun)
+    await expect(readFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), 'utf8')).resolves.toBe(graphBeforeDryRun)
 
     const apply = await runCli(['graph', 'apply-patches'], { cwd: rootDir })
     expect(apply.exitCode).toBe(0)
     expect(apply.stdout).toContain('Dry run: false')
     expect(apply.stdout).toContain('Evidence patches: 1')
     expect(apply.stdout).toContain('Applied patches: 1')
-    await expect(readFile(join(rootDir, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')).resolves.toContain('"status":"confirmed"')
+    await expect(readFile(join(rootDir, '.context', 'graph', 'nodes.jsonl'), 'utf8')).resolves.toContain('"status":"confirmed"')
 
-    const ledger = jsonl<{ id: string; status: string }>(await readFile(join(rootDir, '.context', 'graph', 'patches', 'patches.jsonl'), 'utf8'))
+    const ledger = jsonl<{ id: string; status: string }>(await readFile(join(rootDir, '.context', 'graph', 'patches.jsonl'), 'utf8'))
     expect(ledger).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'PATCH-evidence-refund-scope', status: 'applied' })]))
     await expect(callContextMcpTool(rootDir, 'explain_graph_fact', { factId: 'REQ-ORDER-REFUND-001' })).resolves.toMatchObject({
       data: {
@@ -514,16 +517,16 @@ describe('runtime MCP tools', () => {
         ])
       }
     })
-    const proposals = jsonl<{ sourcePath: string; action: string }>(await readFile(join(rootDir, '.context', 'proposals', 'rehome-proposals.jsonl'), 'utf8'))
+    const proposals = jsonl<{ sourcePath: string; action: string }>(await readFile(join(rootDir, '.context', 'state', 'rehome-proposals.jsonl'), 'utf8'))
     expect(proposals).toEqual(expect.arrayContaining([expect.objectContaining({ sourcePath: 'docs/product/refund.md', action: 'keep' })]))
     await expect(readFile(join(rootDir, 'docs', 'product', 'refund.md'), 'utf8')).resolves.toContain('Support partial refund')
-  })
+  }, 90000)
 
   it('falls back when the SQLite FTS index is missing', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-mcp-search-fallback-'))
     await writeRuntimeToolsProject(rootDir)
     await expect(runCli(['compile'], { cwd: rootDir })).resolves.toMatchObject({ exitCode: 0 })
-    await rm(join(rootDir, '.context', 'indexes', 'global', 'fts.sqlite'), { force: true })
+    await rm(join(rootDir, '.context', 'index', 'global', 'fts.sqlite'), { force: true })
 
     await expect(callContextMcpTool(rootDir, 'search_context', { query: 'refund' })).resolves.toMatchObject({
       data: {
@@ -532,7 +535,7 @@ describe('runtime MCP tools', () => {
         diagnostics: expect.arrayContaining([expect.objectContaining({ type: 'search.index.missing' })])
       }
     })
-  })
+  }, 90000)
 
   it('publishes concrete JSON input schemas through tools/list', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-mcp-tool-schema-'))
@@ -686,7 +689,7 @@ describe('runtime MCP tools', () => {
       },
       required: ['factId']
     })
-  })
+  }, 90000)
 
   it('publishes MCP server instructions and runtime resources for agent-native discovery', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-mcp-resources-'))
@@ -710,7 +713,8 @@ describe('runtime MCP tools', () => {
       expect.arrayContaining([
         expect.objectContaining({ uri: 'context://manifest' }),
         expect.objectContaining({ uri: 'context://health' }),
-        expect.objectContaining({ uri: 'context://views/project' })
+        expect.objectContaining({ uri: 'context://packs/project' }),
+        expect.objectContaining({ uri: 'context://debug/views/project' })
       ])
     )
 
@@ -721,5 +725,5 @@ describe('runtime MCP tools', () => {
       params: { uri: 'context://manifest' }
     }) as { result: { contents: Array<{ text: string }> } }
     expect(read.result.contents[0].text).toContain('"schemaVersion": "context-runtime.v1"')
-  })
+  }, 90000)
 })

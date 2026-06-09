@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { buildGraphScopes, createAdapterRegistry, normalizeGraphBuildResult, scopeDirName, validateGraphBuildResult } from '@context-compiler/core/graph'
-import { defineComponent, ensureAdapterRuntimeStatus, type ContextComponent, type ContextGraph, type ContextSourceInventory, type ContextSourceInventoryEntry, type GraphAdapter, type GraphAdapterArtifact, type AdapterRuntimeStatus, type GraphBuildInput, type RawArtifact } from '@context-compiler/core/sdk'
+import { ensureAdapterRuntimeStatus, type AdapterRuntimeStatus } from '@context-compiler/core/extensions'
+import { defineComponent, type ContextComponent, type ContextGraph, type ContextSourceInventory, type ContextSourceInventoryEntry, type GraphAdapter, type GraphAdapterArtifact, type GraphBuildInput, type RawArtifact } from '@context-compiler/core/sdk'
 
 export interface ScopeAdaptersEnrichOptions {
   graphAdapters?: GraphAdapter[]
@@ -155,10 +156,10 @@ function sourceEntriesForScope(entries: ContextSourceInventoryEntry[], scopePath
 
 function routeAllowedForAdapter(route: ContextSourceInventoryEntry['route'], adapter: GraphAdapter): boolean {
   const sourceGroupKinds = adapter.manifest.sourceGroupKinds ?? []
-  if (sourceGroupKinds.includes('repository') || sourceGroupKinds.includes('test_bundle')) {
+  if (sourceGroupKinds.includes('repository')) {
     return route === 'code'
   }
-  if (sourceGroupKinds.includes('doc_bundle') || sourceGroupKinds.includes('analysis_bundle') || sourceGroupKinds.includes('domain_area')) {
+  if (sourceGroupKinds.includes('doc_bundle') || sourceGroupKinds.includes('analysis_bundle') || sourceGroupKinds.includes('domain_area') || sourceGroupKinds.includes('test_bundle')) {
     return route === 'markdown'
   }
   if (sourceGroupKinds.includes('api_bundle')) {

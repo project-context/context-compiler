@@ -5,15 +5,18 @@ import type {
   ContextGraphScope,
   ContextGraphScopeKind,
   ContextNode,
+  Evidence
+} from '../contracts/graph.js'
+import type {
+  ContextPackageBuildUnit,
   ContextPackageKind,
   ContextPackageRecord,
   ContextSourceGroupKind,
   ContextSourceGroupRecord,
   ContextSourceInventory,
-  ContextSourceInventoryEntry,
-  Evidence,
-  GraphAdapterManifest
-} from '../contracts/index.js'
+  ContextSourceInventoryEntry
+} from '../contracts/sources.js'
+import type { GraphAdapterManifest } from '../contracts/adapters.js'
 import { createContextEdge, createContextNode, evidenceFromSource, slug } from './model.js'
 
 const CODE_GRAPH_ADAPTER_ID = 'codegraph.graph-adapter'
@@ -29,6 +32,14 @@ export interface BuildGraphScopesResult {
   adapters: GraphAdapterManifest[]
 }
 
+interface BuildGraphScopeContext {
+  scope: ContextGraphScope
+  group: ContextSourceGroupRecord
+  packageRecord?: ContextPackageRecord
+  buildUnit: ContextPackageBuildUnit
+  rootNode: ContextNode
+}
+
 /** Build recursive Graph-of-Graphs projections from the canonical project graph. */
 export function buildGraphScopes(graph: ContextGraph, sourceInventory?: ContextSourceInventory): BuildGraphScopesResult {
   const generatedAt = new Date().toISOString()
@@ -36,6 +47,7 @@ export function buildGraphScopes(graph: ContextGraph, sourceInventory?: ContextS
   const packages = packagesFrom(graph, sourceInventory, groups)
   const packageScopes = packages.map((record) => packageScope(graph, sourceInventory, record, groups, generatedAt))
   const groupScopes = groups.map((group) => sourceGroupScope(graph, sourceInventory, group, groups, packages, generatedAt))
+  const buildGraphScopeContexts = buildGraphScopesForSourceGroups(groups, packages, generatedAt)
   const projectScope = finalizeScope(
     {
       id: 'scope:project',
@@ -53,14 +65,15 @@ export function buildGraphScopes(graph: ContextGraph, sourceInventory?: ContextS
   )
 
   const packageGraphs = packageScopes.map((scope) => packageGraph(scope, graph, sourceInventory, groups, packages))
-  const groupGraphs = groupScopes.map((scope) => sourceGroupGraph(scope, graph, sourceInventory, groups))
-  const fileGraphs = sourceInventory ? buildFileScopes(graph, sourceInventory, groupScopes, generatedAt) : []
+  const groupGraphs = groupScopes.map((scope) => sourceGroupGraph(scope, graph, sourceInventory, groups, buildGraphScopeContexts))
+  const buildGraphs = buildGraphScopeContexts.map((context) => buildGraphScopeGraph(context, graph, sourceInventory, groups))
+  const fileGraphs = sourceInventory ? buildFileScopes(graph, sourceInventory, groupScopes, buildGraphScopeContexts, generatedAt) : []
   const contentGraphs = sourceInventory ? buildContentScopes(graph, sourceInventory, groupScopes, generatedAt) : []
   const projectGraph: ContextScopedGraph = {
     scope: withStats(projectScope, graph, sourceInventory, groups),
     graph: withGraphScope(graph, projectScope.id)
   }
-  const allGraphs = [projectGraph, ...packageGraphs, ...groupGraphs, ...fileGraphs, ...contentGraphs]
+  const allGraphs = [projectGraph, ...packageGraphs, ...groupGraphs, ...buildGraphs, ...fileGraphs, ...contentGraphs]
   return {
     scopes: allGraphs.map((entry) => entry.scope),
     graphs: allGraphs,
@@ -189,6 +202,101 @@ function sourceGroupScope(
   )
 }
 
+function buildGraphScopesForSourceGroups(
+  groups: ContextSourceGroupRecord[],
+  packages: ContextPackageRecord[],
+  generatedAt: string
+): BuildGraphScopeContext[] {
+  return groups.flatMap((group) => buildUnitContextsForGroup(group, packages).map(({ packageRecord, buildUnit }) => {
+    const scopeId = scopeIdForBuildGraph(group.id, buildUnit.id, buildUnit.standardKind)
+    const rootNode = buildGraphNode(group, packageRecord, buildUnit, scopeId)
+    return {
+      scope: {
+        id: scopeId,
+        kind: 'build_graph',
+        parentScopeId: scopeIdForSourceGroup(group.id),
+        rootNodeId: rootNode.id,
+        packageId: packageRecord?.id,
+        sourceGroupId: group.id,
+        path: buildUnit.path ?? group.path,
+        title: buildGraphTitle(buildUnit.standardKind, group.title),
+        summary: buildUnit.summary ?? buildGraphSummary(buildUnit.standardKind, group.title),
+        boundaryMode: group.boundaryMode,
+        adapterRefs: dedupeAdapterRefs([buildUnit.adapterSelection, selectedAdapter(buildUnit.adapterId, roleForStandardKind(buildUnit.standardKind), `Build ${buildUnit.standardKind} graph for ${group.title}.`)]),
+        freshness: { status: 'fresh', checkedAt: generatedAt },
+        indexRefs: indexRefsForScope(scopeId),
+        stats: emptyStats()
+      },
+      group,
+      packageRecord,
+      buildUnit,
+      rootNode
+    }
+  }))
+}
+
+function buildUnitContextsForGroup(
+  group: ContextSourceGroupRecord,
+  packages: ContextPackageRecord[]
+): Array<{ packageRecord?: ContextPackageRecord; buildUnit: ContextPackageBuildUnit }> {
+  const matches = packages.flatMap((record) =>
+    record.buildUnits
+      .filter((unit) => unit.sourceGroupIds.includes(group.id))
+      .map((buildUnit) => ({ packageRecord: record, buildUnit }))
+  )
+  if (matches.length > 0) {
+    return matches
+  }
+  return [{ buildUnit: fallbackBuildUnitForGroup(group) }]
+}
+
+function fallbackBuildUnitForGroup(group: ContextSourceGroupRecord): ContextPackageBuildUnit {
+  const standardKind = standardKindForSourceGroupKind(group.kind)
+  const adapterSelection = adapterRefsForSourceGroupKind(group.kind).find((ref) => ref.role !== 'inventory') ?? inventoryAdapter(`Default inventory-only adapter for ${group.kind} source groups.`)
+  return {
+    id: `unit:${slug(`${group.sourceName}:${group.path}:${standardKind}`)}`,
+    kind: buildUnitKindForStandardKind(standardKind),
+    standardKind,
+    title: group.title,
+    sourceGroupIds: [group.id],
+    adapterId: adapterSelection.adapterId,
+    adapterSelection,
+    path: group.path,
+    summary: group.summary
+  }
+}
+
+function buildGraphNode(
+  group: ContextSourceGroupRecord,
+  packageRecord: ContextPackageRecord | undefined,
+  buildUnit: ContextPackageBuildUnit,
+  scopeId: string
+): ContextNode {
+  return createContextNode({
+    id: buildGraphNodeId(group.id, buildUnit),
+    type: nodeTypeForStandardKind(buildUnit.standardKind),
+    name: buildGraphTitle(buildUnit.standardKind, buildUnit.title || group.title),
+    scopeId,
+    parentScopeId: scopeIdForSourceGroup(group.id),
+    subgraphRef: `.context/graph/scopes/${scopeDirName(scopeId)}`,
+    sourceRefs: [group.sourceRef],
+    properties: {
+      level: 'L2',
+      packageId: packageRecord?.id,
+      sourceGroupId: group.id,
+      sourceGroupKind: group.kind,
+      buildUnitId: buildUnit.id,
+      buildUnitKind: buildUnit.kind,
+      standardKind: buildUnit.standardKind,
+      adapterId: buildUnit.adapterId,
+      adapterSelection: buildUnit.adapterSelection,
+      path: buildUnit.path ?? group.path,
+      summary: buildUnit.summary ?? group.summary,
+      normalizesThirdPartyOutput: true
+    }
+  })
+}
+
 function packageGraph(
   scope: ContextGraphScope,
   graph: ContextGraph,
@@ -259,7 +367,8 @@ function sourceGroupGraph(
   scope: ContextGraphScope,
   graph: ContextGraph,
   sourceInventory: ContextSourceInventory | undefined,
-  groups: ContextSourceGroupRecord[]
+  groups: ContextSourceGroupRecord[],
+  buildGraphScopeContexts: BuildGraphScopeContext[]
 ): ContextScopedGraph {
   const groupPath = scope.path
   const selectedNodes = new Map<string, ContextNode>()
@@ -270,18 +379,14 @@ function sourceGroupGraph(
   for (const node of graph.nodes) {
     if (
       node.id === scope.rootNodeId ||
-      directNodeWithinGroup(node, scope.sourceGroupId, groupPath, groups) ||
       directChildGroupWithin(node, scope.sourceGroupId, groupPath, groups)
     ) {
       selectedNodes.set(node.id, withNodeScope(node, scope))
     }
   }
 
-  const fileNodes = new Map<string, ContextNode>()
-  for (const entry of directEntriesWithinGroup(sourceInventory, scope.sourceGroupId, groupPath, groups)) {
-    fileNodes.set(entry.path, sourceFileNode(entry, scope, fileScopeIdForEntry(entry)))
-  }
-  for (const node of fileNodes.values()) {
+  for (const context of buildGraphScopeContexts.filter((candidate) => candidate.scope.sourceGroupId === scope.sourceGroupId)) {
+    const node = withNodeScope(context.rootNode, scope)
     selectedNodes.set(node.id, node)
   }
 
@@ -290,8 +395,7 @@ function sourceGroupGraph(
     .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
       .map((edge) => withEdgeScope(edge, scope.id))
 
-  edges.push(...fileChildScopeEdges(scope, fileNodes))
-  edges.push(...derivedFromEdges(scope, selectedNodes, fileNodes))
+  edges.push(...buildGraphChildScopeEdges(scope, buildGraphScopeContexts.filter((candidate) => candidate.scope.sourceGroupId === scope.sourceGroupId)))
   edges.push(...childScopeEdges(scope, groups))
 
   const scopedGraph = {
@@ -305,10 +409,55 @@ function sourceGroupGraph(
   }
 }
 
+function buildGraphScopeGraph(
+  context: BuildGraphScopeContext,
+  graph: ContextGraph,
+  sourceInventory: ContextSourceInventory | undefined,
+  groups: ContextSourceGroupRecord[]
+): ContextScopedGraph {
+  const groupPath = context.group.path
+  const selectedNodes = new Map<string, ContextNode>([[context.rootNode.id, context.rootNode]])
+  const fileNodes = new Map<string, ContextNode>()
+
+  for (const node of graph.nodes) {
+    if (directNodeWithinGroup(node, context.group.id, groupPath, groups)) {
+      selectedNodes.set(node.id, withNodeScope(node, context.scope))
+    }
+  }
+
+  for (const entry of directEntriesWithinGroup(sourceInventory, context.group.id, groupPath, groups)) {
+    fileNodes.set(entry.path, sourceFileNode(entry, context.scope, fileScopeIdForEntry(entry)))
+  }
+  for (const node of fileNodes.values()) {
+    selectedNodes.set(node.id, node)
+  }
+
+  const nodeIds = new Set(selectedNodes.keys())
+  const edges = graph.edges
+    .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
+    .map((edge) => withEdgeScope(edge, context.scope.id))
+
+  edges.push(...fileChildScopeEdges(context.scope, fileNodes))
+  edges.push(...buildGraphContainsEdges(context, selectedNodes))
+  edges.push(...derivedFromEdges(context.scope, selectedNodes, fileNodes))
+
+  const scopedGraph = {
+    nodes: [...selectedNodes.values()].sort(byId),
+    edges: dedupeEdges(edges).sort(byId),
+    diagnostics: graph.diagnostics.filter((diagnostic) => diagnostic.relatedNodes.some((nodeId) => nodeIds.has(nodeId)))
+  }
+
+  return {
+    scope: withStats(context.scope, scopedGraph, sourceInventory, groups),
+    graph: scopedGraph
+  }
+}
+
 function buildFileScopes(
   graph: ContextGraph,
   sourceInventory: ContextSourceInventory,
   groupScopes: ContextGraphScope[],
+  buildGraphScopeContexts: BuildGraphScopeContext[],
   generatedAt: string
 ): ContextScopedGraph[] {
   return sourceInventory.entries
@@ -318,7 +467,8 @@ function buildFileScopes(
       const groupScope = groupScopes
         .filter((scope) => scope.path && pathWithin(entry.path, scope.path))
         .sort((left, right) => (right.path?.length ?? 0) - (left.path?.length ?? 0))[0]
-      const file = sourceFileNode(entry, { id: scopeId, parentScopeId: groupScope?.id } as ContextGraphScope, scopeId)
+      const parentScope = buildGraphScopeForEntry(entry, groupScope, buildGraphScopeContexts) ?? groupScope
+      const file = sourceFileNode(entry, { id: scopeId, parentScopeId: parentScope?.id } as ContextGraphScope, scopeId)
       const snapshot = sourceSnapshotNode(entry, { id: scopeId, parentScopeId: file.id })
       const derivedNodes = graph.nodes
         .filter((node) => node.sourceRefs.some((sourceRef) => sourceRef.location?.path === entry.path))
@@ -341,7 +491,7 @@ function buildFileScopes(
         {
           id: scopeId,
           kind: 'file',
-          parentScopeId: groupScope?.id ?? 'scope:project',
+          parentScopeId: parentScope?.id ?? 'scope:project',
           rootNodeId: file.id,
           sourceGroupId: groupScope?.sourceGroupId,
           path: entry.path,
@@ -589,6 +739,49 @@ function fileChildScopeEdges(scope: ContextGraphScope, fileNodes: Map<string, Co
   )
 }
 
+function buildGraphChildScopeEdges(scope: ContextGraphScope, buildGraphScopeContexts: BuildGraphScopeContext[]): ContextEdge[] {
+  if (!scope.rootNodeId) return []
+  return buildGraphScopeContexts.map((context) =>
+    createContextEdge({
+      id: `EDGE-${scope.rootNodeId}-has-child-build-graph-${context.rootNode.id}`,
+      from: scope.rootNodeId as string,
+      to: context.rootNode.id,
+      type: 'has_child_scope',
+      linker: 'graph.scope-builder',
+      status: 'confirmed',
+      scopeId: scope.id,
+      evidence: context.rootNode.sourceRefs.length > 0 ? [evidenceFromSource('explicit_reference', `${context.rootNode.id} materializes an L2 build graph`, context.rootNode.sourceRefs)] : [],
+      properties: {
+        childScopeId: context.scope.id,
+        childScopeKind: 'build_graph',
+        standardKind: context.buildUnit.standardKind,
+        adapterId: context.buildUnit.adapterId
+      }
+    })
+  )
+}
+
+function buildGraphContainsEdges(context: BuildGraphScopeContext, selectedNodes: Map<string, ContextNode>): ContextEdge[] {
+  return [...selectedNodes.values()]
+    .filter((node) => node.id !== context.rootNode.id)
+    .map((node) =>
+      createContextEdge({
+        id: `EDGE-${context.rootNode.id}-contains-${node.id}`,
+        from: context.rootNode.id,
+        to: node.id,
+        type: 'contains',
+        linker: 'graph.scope-builder',
+        status: 'confirmed',
+        scopeId: context.scope.id,
+        evidence: node.sourceRefs.length > 0 ? [evidenceFromSource('explicit_reference', `${node.id} is part of ${context.rootNode.name}`, node.sourceRefs)] : [],
+        properties: {
+          standardKind: context.buildUnit.standardKind,
+          adapterId: context.buildUnit.adapterId
+        }
+      })
+    )
+}
+
 function contentChildScopeEdge(scopeId: string, file: ContextNode, contentRoot: ContextNode, childScopeId: string, path: string): ContextEdge {
   return createContextEdge({
     id: `EDGE-${file.id}-has-child-scope-${slug(childScopeId)}`,
@@ -629,8 +822,24 @@ function childScopeEdges(scope: ContextGraphScope, groups: ContextSourceGroupRec
     )
 }
 
+function buildGraphScopeForEntry(
+  entry: ContextSourceInventoryEntry,
+  groupScope: ContextGraphScope | undefined,
+  buildGraphScopeContexts: BuildGraphScopeContext[]
+): ContextGraphScope | undefined {
+  const candidates = buildGraphScopeContexts.filter((context) => context.scope.sourceGroupId === groupScope?.sourceGroupId)
+  if (candidates.length === 0) {
+    return undefined
+  }
+  if (candidates.length === 1) {
+    return candidates[0]?.scope
+  }
+  const standardKind = standardKindForRoute(entry.route)
+  return candidates.find((context) => context.buildUnit.standardKind === standardKind)?.scope ?? candidates.find((context) => context.buildUnit.standardKind === 'inventory')?.scope ?? candidates[0]?.scope
+}
+
 function indexRefsForScope(scopeId: string): Record<string, string> {
-  const dir = `.context/indexes/scopes/${slug(scopeId)}`
+  const dir = `.context/index/scopes/${slug(scopeId)}`
   return {
     graph: `${dir}/graph.sqlite`,
     symbols: `${dir}/symbols.sqlite`,
@@ -649,6 +858,10 @@ export function scopeIdForSourceGroup(groupId: string): string {
 
 export function scopeIdForPackage(packageId: string): string {
   return `scope:package:${slug(packageId)}`
+}
+
+export function scopeIdForBuildGraph(groupId: string, buildUnitId: string, standardKind: ContextPackageBuildUnit['standardKind']): string {
+  return `scope:build-graph:${slug(`${groupId}:${buildUnitId}:${standardKind}`)}`
 }
 
 export function scopeDirName(scopeId: string): string {
@@ -750,7 +963,7 @@ function adapterRefsForSourceGroupKind(kind: ContextSourceGroupKind): ContextGra
     case 'api_bundle':
       return [inventory, selectedAdapter('builtin.openapi', 'semantic-graph-builder', 'Default API contract adapter for api_bundle source groups.')]
     case 'test_bundle':
-      return [inventory, selectedAdapter(CODE_GRAPH_ADAPTER_ID, 'code-graph-builder', 'Default code graph adapter for test_bundle source groups.')]
+      return [inventory, selectedAdapter('microsoft-graphrag.graph-adapter', 'semantic-graph-builder', 'Default semantic corpus adapter for test_bundle source groups.')]
     default:
       return [inventory]
   }
@@ -762,6 +975,70 @@ function adapterRefsForPackage(record: ContextPackageRecord): ContextGraphAdapte
     refs.push(unit.adapterSelection ?? selectedAdapter(unit.adapterId, 'inventory', `Default adapter for ${unit.standardKind} build units.`))
   }
   return dedupeAdapterRefs(refs)
+}
+
+function standardKindForSourceGroupKind(kind: ContextSourceGroupKind): ContextPackageBuildUnit['standardKind'] {
+  if (kind === 'repository') return 'repository'
+  if (kind === 'doc_bundle' || kind === 'analysis_bundle' || kind === 'domain_area' || kind === 'test_bundle') return 'semantic_corpus'
+  if (kind === 'api_bundle') return 'api_contracts'
+  return 'inventory'
+}
+
+function standardKindForRoute(route: ContextSourceInventoryEntry['route']): ContextPackageBuildUnit['standardKind'] {
+  if (route === 'code') return 'repository'
+  if (route === 'markdown') return 'semantic_corpus'
+  if (route === 'openapi') return 'api_contracts'
+  return 'inventory'
+}
+
+function buildUnitKindForStandardKind(kind: ContextPackageBuildUnit['standardKind']): ContextPackageBuildUnit['kind'] {
+  if (kind === 'repository') return 'repository'
+  if (kind === 'semantic_corpus') return 'graphrag_corpus'
+  if (kind === 'api_contracts') return 'api_contracts'
+  return 'inventory'
+}
+
+function roleForStandardKind(kind: ContextPackageBuildUnit['standardKind']): ContextGraphAdapterRef['role'] {
+  if (kind === 'repository') return 'code-graph-builder'
+  if (kind === 'inventory') return 'inventory'
+  return 'semantic-graph-builder'
+}
+
+function nodeTypeForStandardKind(kind: ContextPackageBuildUnit['standardKind']): ContextNode['type'] {
+  if (kind === 'repository') return 'RepositoryGraph'
+  if (kind === 'semantic_corpus') return 'SemanticCorpusGraph'
+  if (kind === 'api_contracts') return 'ApiContractGraph'
+  return 'InventoryGraph'
+}
+
+function buildGraphTitle(kind: ContextPackageBuildUnit['standardKind'], title: string): string {
+  switch (kind) {
+    case 'repository':
+      return `代码图: ${title}`
+    case 'semantic_corpus':
+      return `语义资料图: ${title}`
+    case 'api_contracts':
+      return `API 合同图: ${title}`
+    default:
+      return `资料清单图: ${title}`
+  }
+}
+
+function buildGraphSummary(kind: ContextPackageBuildUnit['standardKind'], title: string): string {
+  switch (kind) {
+    case 'repository':
+      return `${title} 的 L2 代码仓库标准图。`
+    case 'semantic_corpus':
+      return `${title} 的 L2 语义资料标准图。`
+    case 'api_contracts':
+      return `${title} 的 L2 API 合同标准图。`
+    default:
+      return `${title} 的 L2 清单标准图。`
+  }
+}
+
+function buildGraphNodeId(groupId: string, buildUnit: ContextPackageBuildUnit): string {
+  return `BUILD-GRAPH-${slug(`${groupId}:${buildUnit.id}:${buildUnit.standardKind}`)}`
 }
 
 function inventoryAdapter(selectionReason: string): ContextGraphAdapterRef {
@@ -786,6 +1063,8 @@ function packageKind(value: string | undefined): ContextPackageKind {
   if (
     value === 'product_docs' ||
     value === 'code_repository' ||
+    value === 'api_contracts' ||
+    value === 'test_materials' ||
     value === 'analysis' ||
     value === 'design' ||
     value === 'data' ||

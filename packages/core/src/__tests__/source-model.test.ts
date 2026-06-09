@@ -8,7 +8,9 @@ import {
   groupingDecisionToSourceGroupRecord,
   sourceRootNode
 } from '@context-compiler/core/source-model'
-import { type ContextSourceCorrectionDecision, type ContextSourceGroupingDecision, type SourceConfig } from '@context-compiler/core/sdk'
+import { type SourceConfig } from '@context-compiler/core/config'
+import { type ContextSourceCorrectionDecision } from '@context-compiler/core/source-model'
+import { type ContextSourceGroupingDecision } from '@context-compiler/core/sdk'
 
 const source: SourceConfig = { name: 'workspace', path: './sources' }
 

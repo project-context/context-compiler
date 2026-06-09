@@ -3,7 +3,6 @@ import type {
   ContextEdge,
   ContextGraph,
   ContextNode,
-  ContextSourceInventory,
   Diagnostic,
   Evidence,
   EvidenceFinding,
@@ -16,23 +15,41 @@ import type {
   PatchOperation,
   PlanningPack,
   PlanningPackCandidate,
-  RehomeProposal,
+  RehomeProposal
+} from '../contracts/graph.js'
+import type {
+  ContextSourceInventory
+} from '../contracts/sources.js'
+import type {
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { createContextEdge, createContextNode, fingerprintValue, slug } from '../graph/model.js'
+import { createGraphRevision } from '../graph/revisions.js'
 
-export * from '../contracts/index.js'
+export { PIPELINE_STAGES } from '../contracts/pipeline.js'
+export type * from '../contracts/pipeline.js'
+export type {
+  ContextEdge,
+  ContextGraph,
+  ContextNode,
+  Diagnostic,
+  Evidence,
+  EvidenceFinding,
+  EvidenceReport,
+  GraphFactKind,
+  GraphFactProvenance,
+  GraphPatch,
+  GraphPatchApplicationResult,
+  GraphRevision,
+  PatchOperation,
+  PlanningPack,
+  PlanningPackCandidate,
+  RehomeProposal
+} from '../contracts/graph.js'
+export type { ContextSourceInventory } from '../contracts/sources.js'
+export type { SourceRef } from '../contracts/config.js'
 export * from '../pipeline/index.js'
-
-export interface CreateGraphRevisionOptions {
-  parentRevisionId?: string
-  reason: string
-  status?: GraphRevision['status']
-  patchIds?: string[]
-  evidenceReportIds?: string[]
-  createdAt?: string
-}
 
 export interface ApplyGraphPatchResult {
   graph: ContextGraph
@@ -59,27 +76,6 @@ export interface PlanningPackOptions {
 export interface ReconcileEvidenceResult {
   patches: GraphPatch[]
   rehomeProposals: RehomeProposal[]
-}
-
-/** Create an immutable revision record for a canonical graph snapshot. */
-export function createGraphRevision(graph: ContextGraph, options: CreateGraphRevisionOptions): GraphRevision {
-  const createdAt = options.createdAt ?? new Date().toISOString()
-  const graphFingerprint = fingerprintValue({
-    nodes: graph.nodes.map((node) => node.fingerprint).sort(),
-    edges: graph.edges.map((edge) => edge.fingerprint).sort(),
-    diagnostics: graph.diagnostics.map((diagnostic) => diagnostic.id).sort()
-  })
-  return {
-    schemaVersion: 'context-graph-revision.v1',
-    id: `REV-${graphFingerprint.slice(0, 16)}`,
-    parentRevisionId: options.parentRevisionId,
-    createdAt,
-    graphFingerprint,
-    reason: options.reason,
-    status: options.status ?? (options.parentRevisionId ? 'materialized' : 'seed'),
-    patchIds: options.patchIds ?? [],
-    evidenceReportIds: options.evidenceReportIds ?? []
-  }
 }
 
 /** Apply a proposed graph patch into a new graph and revision without mutating the input graph. */

@@ -910,7 +910,7 @@ function displayLabelForNode(node: ViewerElement, graphSize: number): string {
   if (node.type === 'DirectoryGraph') {
     return labelWithType(node, 22)
   }
-  if (node.type === 'ProjectGraph' || node.type === 'PackageGraph' || node.type === 'SourceGroupGraph' || node.type.endsWith('GraphLayer')) {
+  if (node.type === 'ProjectGraph' || node.type === 'PackageGraph' || node.type === 'SourceGroupGraph' || node.type === 'RepositoryGraph' || node.type === 'SemanticCorpusGraph' || node.type === 'ApiContractGraph' || node.type === 'InventoryGraph' || node.type.endsWith('GraphLayer')) {
     return labelWithType(node, 24)
   }
   if (node.type === 'FileGraph' || node.type === 'ContentGraph') {
@@ -941,6 +941,14 @@ function typePrefix(type: string): string {
       return 'L0'
     case 'SourceGroupGraph':
       return 'Group'
+    case 'RepositoryGraph':
+      return 'L2 Code'
+    case 'SemanticCorpusGraph':
+      return 'L2 Docs'
+    case 'ApiContractGraph':
+      return 'L2 API'
+    case 'InventoryGraph':
+      return 'L2 Inv'
     case 'DirectoryGraph':
       return 'Directory'
     case 'FileGraph':
@@ -1285,6 +1293,14 @@ function colorForType(type: string): string {
       return '#0f766e'
     case 'SourceGroupGraph':
       return '#0e7490'
+    case 'RepositoryGraph':
+      return '#0f766e'
+    case 'SemanticCorpusGraph':
+      return '#7c3aed'
+    case 'ApiContractGraph':
+      return '#ea580c'
+    case 'InventoryGraph':
+      return '#64748b'
     case 'DirectoryGraph':
       return '#334155'
     case 'FileGraph':
@@ -1349,6 +1365,10 @@ function shapeForType(type: string): string {
     case 'ProjectGraph':
     case 'PackageGraph':
     case 'SourceGroupGraph':
+    case 'RepositoryGraph':
+    case 'SemanticCorpusGraph':
+    case 'ApiContractGraph':
+    case 'InventoryGraph':
     case 'DirectoryGraph':
       return 'round-rectangle'
     case 'FileGraph':
@@ -1386,6 +1406,12 @@ function sizeForType(type: string): number {
       return 60
     case 'SourceGroupGraph':
       return 58
+    case 'RepositoryGraph':
+    case 'SemanticCorpusGraph':
+    case 'ApiContractGraph':
+      return 54
+    case 'InventoryGraph':
+      return 50
     case 'DirectoryGraph':
       return 62
     case 'FileGraph':

@@ -35,7 +35,7 @@ const graph: ContextGraph = {
 describe('SQLite-backed context search', () => {
   it('hydrates canonical graph nodes from real SQLite FTS ids', async () => {
     const outputDir = await contextDir()
-    await writeFtsIndex(join(outputDir, 'indexes', 'global', 'fts.sqlite'), [
+    await writeFtsIndex(join(outputDir, 'index', 'global', 'fts.sqlite'), [
       { id: 'REQ-ORDER-REFUND-001', text: 'refund sqlite only term' }
     ])
 
@@ -43,7 +43,7 @@ describe('SQLite-backed context search', () => {
 
     expect(result).toMatchObject({
       engine: 'sqlite',
-      indexPath: '.context/indexes/global/fts.sqlite',
+      indexPath: '.context/index/global/fts.sqlite',
       results: [expect.objectContaining({ id: 'REQ-ORDER-REFUND-001', properties: expect.objectContaining({ marker: 'sqlite-hit' }) })],
       diagnostics: []
     })
@@ -61,7 +61,7 @@ describe('SQLite-backed context search', () => {
 
   it('falls back to memory search when SQLite returns no rows', async () => {
     const outputDir = await contextDir()
-    await writeFtsIndex(join(outputDir, 'indexes', 'global', 'fts.sqlite'), [
+    await writeFtsIndex(join(outputDir, 'index', 'global', 'fts.sqlite'), [
       { id: 'REQ-ORDER-REFUND-001', text: 'unrelated sqlite row' }
     ])
 
@@ -74,7 +74,7 @@ describe('SQLite-backed context search', () => {
 
   it('tokenizes hostile query strings before passing them to SQLite', async () => {
     const outputDir = await contextDir()
-    await writeFtsIndex(join(outputDir, 'indexes', 'global', 'fts.sqlite'), [
+    await writeFtsIndex(join(outputDir, 'index', 'global', 'fts.sqlite'), [
       { id: 'REQ-ORDER-REFUND-001', text: 'refund sqlite only term' }
     ])
 

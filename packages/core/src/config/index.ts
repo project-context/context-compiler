@@ -1,7 +1,17 @@
 import { access, readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { basename, dirname, join, resolve } from 'node:path'
-import type { ContextConfigInput, ContextProjectConfig, Diagnostic } from '../contracts/index.js'
+import type { ContextConfigInput, ContextProjectConfig } from '../contracts/config.js'
+import type { Diagnostic } from '../contracts/graph.js'
+
+export type {
+  ContextConfigInput,
+  ContextProjectConfig,
+  SourceConfig,
+  SourceLocation,
+  SourceRef,
+  WorkspaceMetadata
+} from '../contracts/config.js'
 
 /** Loaded context config plus the path it came from. */
 export interface LoadedContextConfig {

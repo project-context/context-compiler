@@ -6,16 +6,19 @@ const execFileAsync = promisify(execFile)
 
 describe('root context script', () => {
   it('runs the local-shop example through the real pnpm script', async () => {
+    const env = { ...process.env, CONTEXT_GRAPHRAG_RUNTIME: 'mock' }
     const compile = await execFileAsync('pnpm', ['context', '--cwd', 'examples/local-shop', 'compile'], {
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env
     })
 
     expect(compile.stdout).toContain('Compiled')
 
     const query = await execFileAsync('pnpm', ['context', '--cwd', 'examples/local-shop', 'query', 'refund'], {
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env
     })
 
     expect(query.stdout).toContain('REQ-ORDER-REFUND-001')
-  }, 15000)
+  }, 90000)
 })

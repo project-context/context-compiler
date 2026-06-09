@@ -5,9 +5,12 @@ import {
   primarySourceRef
 } from '../graph/model.js'
 import type {
-  ContextAgentIntegration,
   ContextGraph,
   ContextNode,
+  Diagnostic
+} from '../contracts/graph.js'
+import type {
+  ContextAgentIntegration,
   ContextPack,
   ContextPluginDefinition,
   ContextProviderPolicy,
@@ -18,12 +21,11 @@ import type {
   ContextRuntimeProvider,
   ContextSkillDefinition,
   ContextToolDefinition,
-  ContextJsonSchema,
-  Diagnostic
-} from '../contracts/index.js'
+  ContextJsonSchema
+} from '../contracts/runtime.js'
 import { CONTEXT_RUNTIME_PLAN_SCHEMA_VERSION } from './schema.js'
 
-const AGENTS = ['codex', 'claude', 'cursor']
+const AGENTS = ['codex', 'claude', 'opencode']
 
 /** Infer the complete runtime capability plan from compiled project evidence. */
 export function buildContextRuntimePlan(
@@ -198,11 +200,11 @@ function inferAgentIntegrations(graph: ContextGraph, views: ContextPack[]): Cont
         '# Generated Context Runtime Instructions',
         '',
         '- Major work should align with `docs/architecture/super-data-network-goal.md`.',
-        '- Start with `.context/views/project.md` for workspace orientation.',
+        '- Start with MCP `get_context_manifest` and `get_context_health`; read `.context/debug/views/project.md` only as a fallback.',
         '- Prefer package-first tools: `list_context_packages`, `get_context_package`, `expand_context_package`, and `search_context_package`.',
         '- Review correction memory first with `list_package_correction_decisions`, `get_package_correction_decision`, and `replay_package_correction_decisions`, then inspect proposals with `list_package_corrections`, `get_correction_proposal`, and `preview_correction_proposal`.',
         '- Use graph scope tools only after choosing a package or for low-level runtime debugging.',
-        generatedViews.includes('implementation') ? '- Use `.context/views/implementation.md` for coding work.' : undefined,
+        generatedViews.includes('implementation') ? '- Use `get_task_context` or `.context/packs/views/implementation.json` for coding work.' : undefined,
         hasTaskTools ? '- Use `context task "<task>" --focus implementation` for focused task context.' : undefined,
         '- Run `context doctor` before handoff when context quality matters.',
         ''
@@ -222,19 +224,19 @@ function inferAgentIntegrations(graph: ContextGraph, views: ContextPack[]): Cont
         '- Start with `list_context_packages`, then drill into `get_context_package` or `expand_context_package`.',
         '- Use package correction decision memory tools before package correction proposal tools, and use both before low-level graph patch tools when evidence suggests relabel, split, merge, rehome, confirm, or reject actions.',
         '- Use graph MCP tools as low-level debug tools after package context is identified.',
-        '- Check `.context/diagnostics/context-health.json` when context looks stale or incomplete.',
+        '- Check `.context/health.json` when context looks stale or incomplete.',
         ''
       ].join('\n'),
       evidence
     },
     {
-      id: 'cursor',
-      title: 'Cursor rules',
-      path: 'agents/cursor/rules/context.generated.md',
+      id: 'opencode',
+      title: 'OpenCode rules',
+      path: 'agents/opencode/AGENTS.generated.md',
       content: [
         '# Context Runtime Rule',
         '',
-        'Use `.context/views/*.md`, `.context/tasks/*.md`, `.context/mcp/tools.json`, and package-first MCP tools as the compiled project context layer. Major work should align with `docs/architecture/super-data-network-goal.md`.',
+        'Use MCP tools, `.context/manifest.json`, `.context/packs/*.json`, and package-first queries as the compiled project context layer. Do not scan the full `.context` tree. Debug Markdown under `.context/debug/` is fallback-only. Major work should align with `docs/architecture/super-data-network-goal.md`.',
         ''
       ].join('\n'),
       evidence

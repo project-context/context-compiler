@@ -1,4 +1,31 @@
-export * from '../contracts/index.js'
+export type * from '../contracts/runtime.js'
+export type * from '../contracts/corrections.js'
+export type {
+  ContextEdge,
+  ContextGraph,
+  ContextGraphScope,
+  ContextGraphScopeManifest,
+  ContextNode,
+  Diagnostic,
+  EvidenceReport,
+  GraphExpansion,
+  GraphFactExplanation,
+  GraphFactHistory,
+  GraphPatch,
+  GraphScopeView,
+  LayeredSourceTrace,
+  PlanningCycle,
+  PlanningPack,
+  RehomeProposal
+} from '../contracts/graph.js'
+export type {
+  ContextPackageRecord,
+  ContextSourceFirstPlans,
+  ContextSourceGroupRecord,
+  ContextSourceInventory,
+  ContextSourceInventoryEntry
+} from '../contracts/sources.js'
+export type { ContextProjectConfig, SourceRef } from '../contracts/config.js'
 export * from '../context/index.js'
 export * from './agent-integration.js'
 export * from './corrections.js'

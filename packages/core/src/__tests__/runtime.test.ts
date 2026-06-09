@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildContextIndexes, buildContextRuntimeWorkspace } from '@context-compiler/core/runtime'
-import { createContextEdge, createContextNode, defineContextProject, type ContextGraph } from '@context-compiler/core/sdk'
+import { defineContextProject } from '@context-compiler/core/config'
+import { createContextEdge, createContextNode, type ContextGraph } from '@context-compiler/core/sdk'
 
 const graph: ContextGraph = {
   nodes: [
@@ -68,7 +69,7 @@ describe('context runtime workspace', () => {
     const indexes = buildContextIndexes(graph)
 
     expect(indexes.manifest.schemaVersion).toBe('context-runtime.v1')
-    expect(indexes.manifest.files.symbols).toBe('.context/indexes/global/symbols.sqlite')
+    expect(indexes.manifest.files.symbols).toBe('.context/index/global/symbols.sqlite')
     expect(indexes.symbols).toEqual([
       {
         id: 'SYM-refund-service-ts-RefundService',
@@ -122,10 +123,15 @@ describe('context runtime workspace', () => {
     expect(workspace.manifest.schemaVersion).toBe('context-runtime.v1')
     expect(workspace.plan.schemaVersion).toBe('context-runtime-plan.v1')
     expect(workspace.manifest.graph.scopes).toBe('.context/graph/scopes/manifest.json')
-    expect(workspace.manifest.indexes.scopes).toBe('.context/indexes/scopes')
+    expect(workspace.manifest.index.scopes).toBe('.context/index/scopes')
+    expect(workspace.manifest.model.packages).toBe('.context/model/packages.jsonl')
+    expect(workspace.manifest.store.sourceMap).toBe('.context/store/source-map.jsonl')
+    expect(workspace.manifest.packs.views).toBe('.context/packs/views')
+    expect(workspace.manifest.debug.views).toBe('.context/debug/views')
+    expect(workspace.manifest.state.corrections).toBe('.context/state/corrections.jsonl')
     expect(workspace.manifest.runtime.providers).toBe('.context/runtime/providers')
-    expect(workspace.manifest.indexes.fts).toBe('.context/indexes/global/fts.sqlite')
-    expect(workspace.manifest.plans.workspaceGraph).toBe('.context/plans/workspace-graph-plan.json')
+    expect(workspace.manifest.index.fts).toBe('.context/index/global/fts.sqlite')
+    expect(workspace.manifest.model.plans.workspaceGraph).toBe('.context/model/plans/workspace-graph-plan.json')
     expect(workspace.runtimeConfig.providers[0]).toMatchObject({
       name: 'refund-metrics',
       kind: 'metrics',
@@ -147,11 +153,11 @@ describe('context runtime workspace', () => {
     expect(workspace.skills.map((skill) => skill.id)).toEqual(
       expect.arrayContaining(['implementation', 'testing', 'review'])
     )
-    expect(workspace.agents.map((agent) => agent.id)).toEqual(['codex', 'claude', 'cursor'])
+    expect(workspace.agents.map((agent) => agent.id)).toEqual(['codex', 'claude', 'opencode'])
     expect(workspace.plugins.map((plugin) => plugin.id)).toEqual(['context-compiler-local'])
     expect(workspace.plan.capabilities.find((capability) => capability.id === 'context_task_implementation')).toMatchObject({
       kind: 'project-tool',
-      targetAgents: ['codex', 'claude', 'cursor'],
+      targetAgents: ['codex', 'claude', 'opencode'],
       evidence: expect.arrayContaining([expect.objectContaining({ nodeId: 'API-POST-api-orders-id-refund' })])
     })
     expect(workspace.plan.capabilities.find((capability) => capability.id === 'refund-metrics')).toMatchObject({

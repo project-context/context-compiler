@@ -1,5 +1,6 @@
-import { createGraphRevision } from '@context-compiler/core/kernel'
-import { defineComponent, evidenceFromSource, nodeContent, nodeStringProperty, slug, type ContextComponent, type ContextGraph, type ContextNode, type Evidence, type EvidenceReport } from '@context-compiler/core/sdk'
+import { createGraphRevision } from '@context-compiler/core/graph'
+import { type EvidenceReport } from '@context-compiler/core/graph'
+import { defineComponent, evidenceFromSource, nodeContent, nodeStringProperty, slug, type ContextComponent, type ContextGraph, type ContextNode, type Evidence } from '@context-compiler/core/sdk'
 
 interface EvidenceProfile {
   group: ContextNode

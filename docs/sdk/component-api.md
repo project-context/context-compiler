@@ -4,7 +4,9 @@ Components are the extension units of Context Compiler. A contributor can implem
 
 Components should import through explicit core subpaths:
 
-- `@context-compiler/core/sdk` for component factories, contracts, diagnostics, extension helpers, and basic graph helpers.
+- `@context-compiler/core/sdk` for component factories, component/adapter contracts, diagnostics, and basic graph helpers.
+- `@context-compiler/core/config` for `defineContextProject`, config loading, and config types.
+- `@context-compiler/core/extensions` for extension manifests, manifest validation, and adapter runtime helpers.
 - `@context-compiler/core/graph` for graph scopes, adapter normalization, and graph file IO.
 - `@context-compiler/core/source-model` for source inventory, L0 package, L1 source group, correction, and source-first build-unit helpers.
 - `@context-compiler/core/runtime` for `.context` workspace and query-facing runtime APIs.

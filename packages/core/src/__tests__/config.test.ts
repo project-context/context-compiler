@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { loadContextConfig } from '@context-compiler/core/sdk'
+import { loadContextConfig } from '@context-compiler/core/config'
 
 describe('context config loading', () => {
   it('infers workspace metadata from the config file directory without project config', async () => {

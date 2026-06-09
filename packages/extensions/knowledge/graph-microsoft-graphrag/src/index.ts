@@ -1,4 +1,5 @@
-import { buildAdapterRuntimeInstallPlan, createContextNode, defineContextExtension, resolveAdapterExtensionPaths, slug, type GraphAdapter, type GraphAdapterManifest, type GraphBuildInput, type GraphBuildResult, type AdapterRuntimeStatus } from '@context-compiler/core/sdk'
+import { buildAdapterRuntimeInstallPlan, defineContextExtension, resolveAdapterExtensionPaths, type AdapterRuntimeStatus } from '@context-compiler/core/extensions'
+import { createContextNode, slug, type GraphAdapter, type GraphAdapterManifest, type GraphBuildInput, type GraphBuildResult } from '@context-compiler/core/sdk'
 import { join } from 'node:path'
 
 export interface MicrosoftGraphRagRuntime {
@@ -14,7 +15,7 @@ export const microsoftGraphRagAdapterManifest: GraphAdapterManifest = {
   title: 'Microsoft GraphRAG graph adapter',
   version: '0.1.0',
   scopeKinds: ['source_group', 'content'],
-  sourceGroupKinds: ['doc_bundle', 'analysis_bundle', 'domain_area'],
+  sourceGroupKinds: ['doc_bundle', 'analysis_bundle', 'domain_area', 'test_bundle'],
   inputs: ['ParsedArtifact', 'NormalizedRecord'],
   outputs: ['ContextNode', 'ContextEdge', 'ContextGraphIndexHint'],
   deterministic: false,

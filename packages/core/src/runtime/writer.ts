@@ -1,30 +1,58 @@
 import { spawn } from 'node:child_process'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { ContextSkillDefinition } from '../contracts/index.js'
+import type { ContextPack, ContextSkillDefinition } from '../contracts/runtime.js'
 import { slug } from '../graph/model.js'
 import type { ContextRuntimeWorkspace } from './workspace.js'
 import { CONTEXT_RUNTIME_SCHEMA_VERSION } from './schema.js'
 
 /** Write generated runtime workspace files. */
 export async function writeContextRuntimeWorkspace(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
-  const preservedGroupingDecisions = await readOptionalText(join(outputDir, 'sources', 'grouping-decisions.json'))
-  const preservedSourceCorrectionDecisions = await readOptionalText(join(outputDir, 'sources', 'correction-decisions.jsonl'))
-  const preservedCorrectionProposals = await readOptionalText(join(outputDir, 'proposals', 'corrections.jsonl'))
+  const preservedGroupingDecisions =
+    await readOptionalText(join(outputDir, 'state', 'grouping-decisions.json')) ??
+    await readOptionalText(join(outputDir, 'sources', 'grouping-decisions.json'))
+  const preservedSourceCorrectionDecisions =
+    await readOptionalText(join(outputDir, 'state', 'source-correction-decisions.jsonl')) ??
+    await readOptionalText(join(outputDir, 'sources', 'correction-decisions.jsonl'))
+  const preservedCorrectionProposals =
+    await readOptionalText(join(outputDir, 'state', 'corrections.jsonl')) ??
+    await readOptionalText(join(outputDir, 'proposals', 'corrections.jsonl'))
   const preservationRoot = join(outputDir, '.runtime-writer-preserve')
   await rm(preservationRoot, { recursive: true, force: true })
   const preservedExtensions = await preserveGeneratedDir(join(outputDir, 'extensions'), join(preservationRoot, 'extensions'))
+
   await Promise.all(
-    ['indexes', 'runtime', 'mcp', 'tools', 'skills', 'agents', 'plugins', 'diagnostics', 'artifacts', 'sources', 'proposals', 'extensions'].map((dir) =>
-      rm(join(outputDir, dir), { recursive: true, force: true })
-    )
+    [
+      'model',
+      'store',
+      'index',
+      'runtime',
+      'mcp',
+      'agents',
+      'debug',
+      'state',
+      'cache',
+      'extensions',
+      // Remove legacy primary surfaces so stale files cannot mislead agents.
+      'sources',
+      'indexes',
+      'views',
+      'artifacts',
+      'diagnostics',
+      'proposals',
+      'plans',
+      'tasks',
+      'tools',
+      'skills',
+      'plugins'
+    ].map((dir) => rm(join(outputDir, dir), { recursive: true, force: true }))
   )
   await rm(join(outputDir, 'context-manifest.json'), { force: true })
 
   await writeJson(join(outputDir, 'manifest.json'), workspace.manifest)
-  await writeSourceInventory(outputDir, workspace, preservedGroupingDecisions, preservedSourceCorrectionDecisions)
+  await writeSourceModelAndStore(outputDir, workspace, preservedGroupingDecisions, preservedSourceCorrectionDecisions)
 
-  await writeJson(join(outputDir, 'indexes', 'manifest.json'), workspace.indexes.manifest)
+  await writeJson(join(outputDir, 'index', 'manifest.json'), workspace.indexes.manifest)
   await writeGlobalIndexes(outputDir, workspace)
   for (const scoped of workspace.indexes.scopes) {
     if (shouldMaterializeScopedIndexes(scoped.scope.kind)) {
@@ -34,9 +62,9 @@ export async function writeContextRuntimeWorkspace(outputDir: string, workspace:
 
   await writeSourceFirstPlans(outputDir, workspace)
   await writeGraphKernelFiles(outputDir, workspace)
-  if (preservedCorrectionProposals !== undefined) {
-    await writeText(join(outputDir, 'proposals', 'corrections.jsonl'), preservedCorrectionProposals)
-  }
+  await writeText(join(outputDir, 'state', 'corrections.jsonl'), preservedCorrectionProposals ?? '')
+  await writeJsonl(join(outputDir, 'state', 'approvals.jsonl'), [])
+  await writeJsonl(join(outputDir, 'state', 'notes.jsonl'), [])
 
   await writeJson(join(outputDir, 'runtime', 'runtime-plan.json'), workspace.plan)
   await writeJson(join(outputDir, 'runtime', 'runtime.config.json'), workspace.runtimeConfig)
@@ -49,26 +77,38 @@ export async function writeContextRuntimeWorkspace(outputDir: string, workspace:
     schemaVersion: CONTEXT_RUNTIME_SCHEMA_VERSION,
     transport: 'stdio',
     manifest: '.context/manifest.json',
-    tools: '.context/mcp/tools.json'
+    tools: '.context/mcp/tools.json',
+    resources: '.context/mcp/resources.json'
   })
   await writeJson(join(outputDir, 'mcp', 'tools.json'), workspace.mcpTools)
+  await writeJson(join(outputDir, 'mcp', 'resources.json'), {
+    schemaVersion: CONTEXT_RUNTIME_SCHEMA_VERSION,
+    resources: [
+      { uri: 'context://manifest', path: '.context/manifest.json', mimeType: 'application/json' },
+      { uri: 'context://health', path: '.context/health.json', mimeType: 'application/json' },
+      { uri: 'context://runtime-plan', path: '.context/runtime/runtime-plan.json', mimeType: 'application/json' },
+      { uri: 'context://packs/project', path: '.context/packs/views/project.json', mimeType: 'application/json' },
+      { uri: 'context://debug/views/project', path: '.context/debug/views/project.md', mimeType: 'text/markdown' }
+    ]
+  })
 
   for (const tool of workspace.tools) {
-    await writeJson(join(outputDir, 'tools', `${slug(tool.name)}.json`), tool)
+    await writeJson(join(outputDir, 'runtime', 'tools', `${slug(tool.name)}.json`), tool)
   }
   for (const skill of workspace.skills) {
-    await writeText(join(outputDir, 'skills', `${slug(skill.id)}.md`), renderSkill(skill))
+    await writeText(join(outputDir, 'runtime', 'skills', `${slug(skill.id)}.md`), renderSkill(skill))
   }
   for (const agent of workspace.agents) {
     await writeText(join(outputDir, agent.path), agent.content)
   }
   for (const plugin of workspace.plugins) {
-    await writeJson(join(outputDir, 'plugins', `${slug(plugin.id)}.json`), plugin)
+    await writeJson(join(outputDir, 'runtime', 'plugins', `${slug(plugin.id)}.json`), plugin)
   }
 
-  await writeJson(join(outputDir, 'diagnostics', 'context-health.json'), workspace.health)
-  await writeJsonl(join(outputDir, 'diagnostics', 'latest.jsonl'), workspace.plan.diagnostics)
-  await writeArtifacts(outputDir, workspace)
+  await writeJson(join(outputDir, 'health.json'), workspace.health)
+  await writeJsonl(join(outputDir, 'debug', 'diagnostics', 'latest.jsonl'), workspace.plan.diagnostics)
+  await writePacks(outputDir, workspace)
+  await writeDebugArtifacts(outputDir, workspace)
   await restoreGeneratedDir(preservedExtensions, join(outputDir, 'extensions'))
   await rm(preservationRoot, { recursive: true, force: true })
 }
@@ -99,16 +139,16 @@ function isMissingPathError(error: unknown): boolean {
   return Boolean(error && typeof error === 'object' && (error as { code?: string }).code === 'ENOENT')
 }
 
-async function writeSourceInventory(
+async function writeSourceModelAndStore(
   outputDir: string,
   workspace: ContextRuntimeWorkspace,
   preservedGroupingDecisions?: string,
   preservedSourceCorrectionDecisions?: string
 ): Promise<void> {
   const entries = workspace.sourceInventory.entries
-  await writeJsonl(join(outputDir, 'sources', 'inventory.jsonl'), entries)
+  await writeJsonl(join(outputDir, 'model', 'source-inventory.jsonl'), entries)
   await writeJsonl(
-    join(outputDir, 'sources', 'routes.jsonl'),
+    join(outputDir, 'model', 'source-routes.jsonl'),
     entries.map((entry) => ({
       id: entry.id,
       path: entry.path,
@@ -118,25 +158,95 @@ async function writeSourceInventory(
       sourceRef: entry.sourceRef
     }))
   )
-  await writeJsonl(join(outputDir, 'sources', 'unsupported.jsonl'), entries.filter((entry) => entry.status === 'unsupported'))
-  await writeJsonl(join(outputDir, 'sources', 'groups.jsonl'), workspace.sourceInventory.groups ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'packages.jsonl'), workspace.sourceInventory.packages ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'build-units.jsonl'), (workspace.sourceInventory.packages ?? []).flatMap((record) => record.buildUnits))
+  await writeJsonl(join(outputDir, 'model', 'unsupported-sources.jsonl'), entries.filter((entry) => entry.status === 'unsupported'))
+  await writeJsonl(join(outputDir, 'model', 'groups.jsonl'), workspace.sourceInventory.groups ?? [])
+  await writeJsonl(join(outputDir, 'model', 'packages.jsonl'), workspace.sourceInventory.packages ?? [])
+  await writeJsonl(join(outputDir, 'model', 'build-units.jsonl'), (workspace.sourceInventory.packages ?? []).flatMap((record) => record.buildUnits))
+  await writeJsonl(join(outputDir, 'model', 'scopes.jsonl'), workspace.indexes.scopes.map((scoped) => scoped.scope))
+  await writeJsonl(join(outputDir, 'model', 'claims.jsonl'), [])
   if (workspace.sourceInventory.groupingRequest) {
-    await writeJson(join(outputDir, 'sources', 'grouping-request.json'), workspace.sourceInventory.groupingRequest)
+    await writeJson(join(outputDir, 'model', 'grouping-request.json'), workspace.sourceInventory.groupingRequest)
+  } else {
+    await writeJson(join(outputDir, 'model', 'grouping-request.json'), {
+      schemaVersion: 'context-source-grouping-request.v1',
+      generatedAt: workspace.manifest.compiledAt,
+      sources: []
+    })
   }
-  if (preservedGroupingDecisions) {
-    await writeText(join(outputDir, 'sources', 'grouping-decisions.json'), preservedGroupingDecisions)
-  }
-  if (preservedSourceCorrectionDecisions !== undefined) {
-    await writeText(join(outputDir, 'sources', 'correction-decisions.jsonl'), preservedSourceCorrectionDecisions)
-  }
-  await writeJson(join(outputDir, 'sources', 'summary.json'), workspace.sourceInventory.summary)
+  await writeText(
+    join(outputDir, 'state', 'grouping-decisions.json'),
+    preservedGroupingDecisions ??
+      JSON.stringify(
+        {
+          schemaVersion: 'context-source-grouping-decisions.v1',
+          generatedAt: workspace.manifest.compiledAt,
+          decisions: []
+        },
+        null,
+        2
+      )
+  )
+  await writeText(join(outputDir, 'state', 'source-correction-decisions.jsonl'), preservedSourceCorrectionDecisions ?? '')
+  await writeJson(join(outputDir, 'model', 'source-summary.json'), workspace.sourceInventory.summary)
+
+  await mkdir(join(outputDir, 'store', 'blobs'), { recursive: true })
+  await writeJsonl(join(outputDir, 'store', 'chunks.jsonl'), [])
+  await writeJsonl(
+    join(outputDir, 'store', 'source-map.jsonl'),
+    entries.map((entry) => ({
+      id: entry.id,
+      sourceRef: entry.sourceRef,
+      path: entry.path,
+      route: entry.route,
+      hash: entry.hash
+    }))
+  )
 }
 
-async function writeArtifacts(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
+async function writePacks(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
+  const packs = workspace.manifest.packEntries
+  const viewPacks = new Set(packs.filter((pack) => pack.view).map((pack) => pack.view as string))
+  await mkdir(join(outputDir, 'packs', 'views'), { recursive: true })
+  await mkdir(join(outputDir, 'packs', 'tasks'), { recursive: true })
+  for (const pack of workspace.packs) {
+    if (pack.kind === 'context-view' && pack.view) {
+      await writeJson(join(outputDir, 'packs', 'views', `${pack.view}.json`), serializePack(pack))
+      await writeText(join(outputDir, 'debug', 'views', `${pack.view}.md`), pack.content)
+    } else if (pack.kind === 'task-context') {
+      await writeJson(join(outputDir, 'packs', 'tasks', `${slug(pack.id)}.json`), serializePack(pack))
+    }
+  }
+  for (const defaultView of ['project', 'implementation', 'review', 'testing']) {
+    if (!viewPacks.has(defaultView)) {
+      await writeJson(join(outputDir, 'packs', 'views', `${defaultView}.json`), {
+        schemaVersion: 'context-pack.v1',
+        id: `context-view:${defaultView}`,
+        kind: 'context-view',
+        view: defaultView,
+        title: `${defaultView} context`,
+        content: '',
+        metadata: { empty: true }
+      })
+    }
+  }
+}
+
+function serializePack(pack: ContextPack): Record<string, unknown> {
+  return {
+    schemaVersion: 'context-pack.v1',
+    id: pack.id,
+    kind: pack.kind,
+    title: pack.title,
+    view: pack.view,
+    task: pack.task,
+    content: pack.content,
+    metadata: pack.metadata
+  }
+}
+
+async function writeDebugArtifacts(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
   await writeText(
-    join(outputDir, 'artifacts', 'project', 'brief.md'),
+    join(outputDir, 'debug', 'project', 'brief.md'),
     [
       `# ${workspace.manifest.project.name} Context Brief`,
       '',
@@ -151,8 +261,8 @@ async function writeArtifacts(outputDir: string, workspace: ContextRuntimeWorksp
       '',
       '## Agent Workflow',
       '',
-      '- Use generated task context for focused work.',
-      '- Query graph/index details through MCP or CLI commands.',
+      '- Prefer MCP and JSON packs over scanning generated files.',
+      '- Use debug Markdown only when MCP or structured packs are unavailable.',
       '- Verify code facts by reading source files before editing.'
     ].join('\n')
   )
@@ -161,14 +271,14 @@ async function writeArtifacts(outputDir: string, workspace: ContextRuntimeWorksp
   await Promise.all(
     domains.map((domain) =>
       writeText(
-        join(outputDir, 'artifacts', 'domains', `${slug(domain)}.md`),
+        join(outputDir, 'debug', 'domains', `${slug(domain)}.md`),
         [`# ${domain} Domain Context`, '', ...workspace.indexes.fts.filter((entry) => entry.domain === domain).map((entry) => `- ${entry.id}: ${entry.name}`)].join('\n')
       )
     )
   )
 
   await writeText(
-    join(outputDir, 'artifacts', 'reports', 'diagnostics.md'),
+    join(outputDir, 'debug', 'reports', 'diagnostics.md'),
     [
       '# Context Diagnostics',
       '',
@@ -177,6 +287,7 @@ async function writeArtifacts(outputDir: string, workspace: ContextRuntimeWorksp
         : workspace.plan.diagnostics.map((diagnostic) => `- [${diagnostic.severity}] ${diagnostic.type}: ${diagnostic.message}`).join('\n')
     ].join('\n')
   )
+  await mkdir(join(outputDir, 'debug', 'maps', 'graphify'), { recursive: true })
 
   for (const scoped of workspace.indexes.scopes) {
     for (const adapter of scoped.scope.adapterRefs) {
@@ -198,24 +309,24 @@ function adapterDirName(adapterId: string): string {
 }
 
 async function writeSourceFirstPlans(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
-  await writeJson(join(outputDir, 'plans', 'planning-pack.json'), workspace.graphKernel.planningPack)
-  await writeJsonl(join(outputDir, 'plans', 'planning-cycles.jsonl'), workspace.graphKernel.planningCycles)
-  await writeJson(join(outputDir, 'plans', 'source-triage.json'), workspace.sourceFirstPlans.triage)
-  await writeJson(join(outputDir, 'plans', 'source-group-plan.json'), workspace.sourceFirstPlans.sourceGroups)
-  await writeJson(join(outputDir, 'plans', 'workspace-graph-plan.json'), workspace.sourceFirstPlans.workspaceGraph)
-  await writeJson(join(outputDir, 'plans', 'scope-build-plan.json'), workspace.sourceFirstPlans.scopeBuild)
-  await writeJson(join(outputDir, 'plans', 'adapter-plan.json'), workspace.sourceFirstPlans.adapterPlan)
+  await writeJson(join(outputDir, 'model', 'plans', 'planning-pack.json'), workspace.graphKernel.planningPack)
+  await writeJsonl(join(outputDir, 'model', 'plans', 'planning-cycles.jsonl'), workspace.graphKernel.planningCycles)
+  await writeJson(join(outputDir, 'model', 'plans', 'source-triage.json'), workspace.sourceFirstPlans.triage)
+  await writeJson(join(outputDir, 'model', 'plans', 'source-group-plan.json'), workspace.sourceFirstPlans.sourceGroups)
+  await writeJson(join(outputDir, 'model', 'plans', 'workspace-graph-plan.json'), workspace.sourceFirstPlans.workspaceGraph)
+  await writeJson(join(outputDir, 'model', 'plans', 'scope-build-plan.json'), workspace.sourceFirstPlans.scopeBuild)
+  await writeJson(join(outputDir, 'model', 'plans', 'adapter-plan.json'), workspace.sourceFirstPlans.adapterPlan)
 }
 
 async function writeGraphKernelFiles(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
-  await writeJsonl(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'), workspace.graphKernel.revisions)
-  await writeJsonl(join(outputDir, 'graph', 'patches', 'patches.jsonl'), workspace.graphKernel.patches)
+  await writeJsonl(join(outputDir, 'graph', 'revisions.jsonl'), workspace.graphKernel.revisions)
+  await writeJsonl(join(outputDir, 'graph', 'patches.jsonl'), workspace.graphKernel.patches)
   await writeJsonl(join(outputDir, 'graph', 'evidence-reports.jsonl'), workspace.graphKernel.evidenceReports)
-  await writeJsonl(join(outputDir, 'proposals', 'rehome-proposals.jsonl'), workspace.graphKernel.rehomeProposals)
+  await writeJsonl(join(outputDir, 'state', 'rehome-proposals.jsonl'), workspace.graphKernel.rehomeProposals)
 }
 
 async function writeGlobalIndexes(outputDir: string, workspace: ContextRuntimeWorkspace): Promise<void> {
-  const dir = join(outputDir, 'indexes', 'global')
+  const dir = join(outputDir, 'index', 'global')
   await writeIndexFile(join(dir, 'graph.sqlite'), 'graph_nodes', workspace.indexes.graph)
   await writeIndexFile(join(dir, 'symbols.sqlite'), 'symbols', workspace.indexes.symbols)
   await writeIndexFile(join(dir, 'api.sqlite'), 'apis', workspace.indexes.apis)
@@ -227,7 +338,7 @@ async function writeGlobalIndexes(outputDir: string, workspace: ContextRuntimeWo
 }
 
 async function writeScopedIndexes(outputDir: string, scoped: ContextRuntimeWorkspace['indexes']['scopes'][number]): Promise<void> {
-  const dir = join(outputDir, 'indexes', 'scopes', slug(scoped.scope.id))
+  const dir = join(outputDir, 'index', 'scopes', slug(scoped.scope.id))
   await writeIndexFile(join(dir, 'graph.sqlite'), 'graph_nodes', scoped.indexes.graph)
   await writeIndexFile(join(dir, 'symbols.sqlite'), 'symbols', scoped.indexes.symbols)
   await writeIndexFile(join(dir, 'api.sqlite'), 'apis', scoped.indexes.apis)
@@ -239,7 +350,7 @@ async function writeScopedIndexes(outputDir: string, scoped: ContextRuntimeWorks
 }
 
 function shouldMaterializeScopedIndexes(kind: ContextRuntimeWorkspace['indexes']['scopes'][number]['scope']['kind']): boolean {
-  return kind === 'project' || kind === 'source_group'
+  return kind === 'project' || kind === 'source_group' || kind === 'build_graph'
 }
 
 async function writeJson(path: string, value: unknown): Promise<void> {

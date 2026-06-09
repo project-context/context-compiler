@@ -1,4 +1,5 @@
-import type { ContextGraph, ContextRuntimeConfig, ContextRuntimeHealth, Diagnostic } from '../contracts/index.js'
+import type { ContextGraph, Diagnostic } from '../contracts/graph.js'
+import type { ContextRuntimeConfig, ContextRuntimeHealth } from '../contracts/runtime.js'
 import type { ContextIndexes } from './indexes.js'
 import { CONTEXT_RUNTIME_SCHEMA_VERSION } from './schema.js'
 

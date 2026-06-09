@@ -1,4 +1,6 @@
-import type { ContextGraph, ContextIndexManifest, ContextSourceInventory } from '../contracts/index.js'
+import type { ContextGraph } from '../contracts/graph.js'
+import type { ContextIndexManifest } from '../contracts/runtime.js'
+import type { ContextSourceInventory } from '../contracts/sources.js'
 import { nodeContent, nodeStringProperty, sourceUri } from '../graph/model.js'
 import { buildGraphScopes } from '../graph/scopes.js'
 import { CONTEXT_RUNTIME_SCHEMA_VERSION } from './schema.js'
@@ -77,15 +79,15 @@ export interface BuildContextIndexesOptions {
 /** Build deterministic JSON indexes from a compiled graph. */
 export function buildContextIndexes(graph: ContextGraph, options: BuildContextIndexesOptions = {}): ContextIndexes {
   const base = buildFlatContextIndexes(graph, {
-    graph: '.context/indexes/global/graph.sqlite',
-    symbols: '.context/indexes/global/symbols.sqlite',
-    apis: '.context/indexes/global/api.sqlite',
-    docs: '.context/indexes/global/docs.sqlite',
-    tests: '.context/indexes/global/tests.sqlite',
-    runtime: '.context/indexes/global/runtime.sqlite',
-    fts: '.context/indexes/global/fts.sqlite',
-    fingerprints: '.context/indexes/global/fingerprints.sqlite',
-    scopes: '.context/indexes/scopes'
+    graph: '.context/index/global/graph.sqlite',
+    symbols: '.context/index/global/symbols.sqlite',
+    apis: '.context/index/global/api.sqlite',
+    docs: '.context/index/global/docs.sqlite',
+    tests: '.context/index/global/tests.sqlite',
+    runtime: '.context/index/global/runtime.sqlite',
+    fts: '.context/index/global/fts.sqlite',
+    fingerprints: '.context/index/global/fingerprints.sqlite',
+    scopes: '.context/index/scopes'
   })
   const scopes =
     options.includeScopes === false
@@ -101,7 +103,7 @@ export function buildContextIndexes(graph: ContextGraph, options: BuildContextIn
             runtime: scope.indexRefs.runtime,
             fts: scope.indexRefs.fts,
             fingerprints: scope.indexRefs.fingerprints,
-            scopes: '.context/indexes/scopes'
+            scopes: '.context/index/scopes'
           })
         }))
 

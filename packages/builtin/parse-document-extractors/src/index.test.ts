@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { emptyPipelineState, type DocumentExtractionInput, type DocumentExtractorAdapter, type PipelineExecutionContext } from '@context-compiler/core/sdk'
+import { emptyPipelineState } from '@context-compiler/core/kernel'
+import { type DocumentExtractionInput, type DocumentExtractorAdapter, type PipelineExecutionContext } from '@context-compiler/core/sdk'
 import { createDocumentExtractorsParseComponent } from './index.js'
 
 describe('document extractor parse component', () => {

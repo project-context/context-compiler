@@ -49,7 +49,9 @@ Official implementations are ordinary components. The current `@context-compiler
 `@context-compiler/core` exposes explicit subpath APIs instead of one broad internal import surface:
 
 ```txt
-@context-compiler/core/sdk          component SDK, contracts, diagnostics, shared helpers
+@context-compiler/core/sdk          component/adapter SDK, diagnostics, basic graph helpers
+@context-compiler/core/config       defineContextProject, loadContextConfig, config types
+@context-compiler/core/extensions   extension manifests and adapter runtime helpers
 @context-compiler/core/kernel       pipeline planner/runner/state and graph revision/patch kernel
 @context-compiler/core/graph        graph model, scopes, adapter normalization, graph file IO
 @context-compiler/core/source-model source inventory, L0 packages, L1 groups, source-first plans
@@ -230,12 +232,15 @@ Context Compiler infers context views from existing content instead of asking us
 For example:
 
 ```txt
-.context/views/product.md
-.context/views/design.md
-.context/views/project.md
-.context/views/implementation.md
-.context/views/review.md
-.context/views/testing.md
+.context/packs/views/product.json
+.context/packs/views/design.json
+.context/packs/views/project.json
+.context/packs/views/implementation.json
+.context/packs/views/review.json
+.context/packs/views/testing.json
+
+# human debug fallback:
+.context/debug/views/implementation.md
 ```
 
 ### 4. Task Context
@@ -251,7 +256,8 @@ context task "Support partial refund for orders" --focus implementation
 Possible output:
 
 ```txt
-.context/tasks/support-partial-refund.implementation.md
+.context/packs/tasks/support-partial-refund.implementation.json
+.context/debug/tasks/support-partial-refund.implementation.md
 ```
 
 A task context may include:
@@ -287,7 +293,7 @@ Context Compiler may emit agent-specific instruction packs for tools such as:
 
 * Claude Code;
 * Codex;
-* Cursor;
+* OpenCode;
 * Copilot;
 * Gemini CLI;
 * other AI coding agents.
@@ -384,13 +390,13 @@ A typical Context Compiler architecture looks like this:
 └──────────────────────────────────────────────┘
                     ↓
 ┌──────────────────────────────────────────────┐
-│              Context Artifacts               │
-│ Context Views / Task Context / Diagnostics      │
+│        Agent-Native .context Workspace       │
+│ Model / Graph / Index / Packs / Debug        │
 └──────────────────────────────────────────────┘
                     ↓
 ┌──────────────────────────────────────────────┐
 │              Agent Runtime Integration       │
-│ Claude Code / Codex / Cursor / MCP / CI      │
+│ Claude Code / Codex / OpenCode / MCP / CI    │
 └──────────────────────────────────────────────┘
 ```
 
@@ -512,30 +518,46 @@ A compiled project may contain:
 
 ```txt
 .context/
-  context-manifest.json
+  manifest.json
+  health.json
 
-  views/
-    project.md
-    implementation.md
-    review.md
-    testing.md
-    product.md
-    design.md
+  model/
+    source-inventory.jsonl
+    packages.jsonl
+    groups.jsonl
+    build-units.jsonl
+    scopes.jsonl
+    claims.jsonl
+    plans/
 
-  tasks/
-    TASK-1234.implementation.md
-    TASK-1234.testing.md
+  store/
+    blobs/
+    chunks.jsonl
+    source-map.jsonl
 
   graph/
     nodes.jsonl
     edges.jsonl
     diagnostics.jsonl
+    scopes/
+    revisions.jsonl
+    patches.jsonl
+    submitted-patches.jsonl
+    evidence-reports.jsonl
 
-  indexes/
+  index/
     manifest.json
-    symbols.json
-    apis.json
-    search.json
+    global/
+      symbols.sqlite
+      api.sqlite
+      fts.sqlite
+    scopes/
+
+  packs/
+    views/
+      project.json
+      implementation.json
+    tasks/
 
   runtime/
     runtime-plan.json
@@ -544,25 +566,33 @@ A compiled project may contain:
     trace.jsonl
     run-summary.json
     providers/
+    tools/
+    skills/
+    plugins/
 
   mcp/
     server.config.json
     tools.json
-
-  tools/
-  skills/
+    resources.json
 
   agents/
     codex/
       AGENTS.generated.md
     claude/
       CLAUDE.generated.md
-    cursor/
-      rules/
+    opencode/
+      AGENTS.generated.md
 
-  plugins/
-  diagnostics/
-    context-health.json
+  debug/
+    views/
+    tasks/
+    reports/
+    maps/graphify/
+
+  state/
+    corrections.jsonl
+    grouping-decisions.json
+    source-correction-decisions.jsonl
 ```
 
 ---
@@ -572,28 +602,37 @@ A compiled project may contain:
 ```json
 {
   "schemaVersion": "context-runtime.v1",
-  "workspace": {
-    "rootDir": "/repo/examples/local-shop",
-    "name": "local-shop",
-    "configPath": "/repo/examples/local-shop/context.config.json"
-  },
+  "project": { "name": "local-shop", "language": "unknown", "root": "." },
   "compiledAt": "2026-06-02T10:00:00Z",
-  "compilerVersion": "0.1.0",
-  "pipeline": "compile",
+  "compiler": { "name": "context-compiler", "version": "0.1.0", "pipeline": "compile" },
+  "model": {
+    "packages": ".context/model/packages.jsonl",
+    "groups": ".context/model/groups.jsonl",
+    "sourceInventory": ".context/model/source-inventory.jsonl",
+    "plans": { "workspaceGraph": ".context/model/plans/workspace-graph-plan.json" }
+  },
+  "store": {
+    "chunks": ".context/store/chunks.jsonl",
+    "sourceMap": ".context/store/source-map.jsonl",
+    "blobs": ".context/store/blobs"
+  },
   "graph": {
     "nodes": ".context/graph/nodes.jsonl",
     "edges": ".context/graph/edges.jsonl",
-    "diagnostics": ".context/graph/diagnostics.jsonl"
+    "diagnostics": ".context/graph/diagnostics.jsonl",
+    "scopes": ".context/graph/scopes/manifest.json",
+    "patches": ".context/graph/patches.jsonl",
+    "revisions": ".context/graph/revisions.jsonl"
   },
-  "indexes": {
-    "symbols": ".context/indexes/symbols.json",
-    "apis": ".context/indexes/apis.json",
-    "search": ".context/indexes/search.json"
+  "index": {
+    "symbols": ".context/index/global/symbols.sqlite",
+    "apis": ".context/index/global/api.sqlite",
+    "fts": ".context/index/global/fts.sqlite"
   },
-  "packs": [
-    { "id": "context-view:project", "kind": "context-view", "view": "project" },
-    { "id": "context-view:implementation", "kind": "context-view", "view": "implementation" }
-  ],
+  "packs": {
+    "views": ".context/packs/views",
+    "tasks": ".context/packs/tasks"
+  },
   "runtime": {
     "plan": ".context/runtime/runtime-plan.json",
     "config": ".context/runtime/runtime.config.json",
@@ -601,24 +640,31 @@ A compiled project may contain:
     "runSummary": ".context/runtime/run-summary.json",
     "agentInstallPlan": ".context/runtime/agent-install-plan.json",
     "freshness": { "status": "fresh", "checkedAt": "2026-06-02T10:00:00Z" },
-    "installStatus": { "codex": "planned", "claude": "planned" },
+    "installStatus": { "codex": "planned", "claude": "planned", "opencode": "planned" },
     "capabilitySurfaces": {
       "codex": ["AGENTS.md", ".codex/config.toml", ".agents/skills", ".codex/agents"],
-      "claude": ["CLAUDE.md", ".mcp.json", ".claude/skills", ".claude/settings.json"]
+      "claude": ["CLAUDE.md", ".mcp.json", ".claude/skills", ".claude/settings.json"],
+      "opencode": ["AGENTS.md", "opencode.json", ".opencode/skills"]
     },
-    "providers": [],
-    "tools": ["context-compile", "context-doctor", "context-task-implementation", "context-task-testing", "context-review"],
+    "providers": ".context/runtime/providers",
+    "tools": ".context/runtime/tools",
     "skills": ["implementation", "testing", "review", "product"],
-    "agents": ["codex", "claude", "cursor"],
-    "plugins": ["context-compiler-local"],
-    "mcp": {
-      "serverConfig": ".context/mcp/server.config.json",
-      "tools": ".context/mcp/tools.json"
-    }
+    "agents": ["codex", "claude", "opencode"],
+    "plugins": ["context-compiler-local"]
   },
-  "diagnostics": {
-    "health": ".context/diagnostics/context-health.json",
-    "graph": ".context/graph/diagnostics.jsonl"
+  "mcp": {
+    "serverConfig": ".context/mcp/server.config.json",
+    "tools": ".context/mcp/tools.json",
+    "resources": ".context/mcp/resources.json"
+  },
+  "debug": {
+    "views": ".context/debug/views",
+    "reports": ".context/debug/reports",
+    "maps": ".context/debug/maps"
+  },
+  "state": {
+    "corrections": ".context/state/corrections.jsonl",
+    "groupingDecisions": ".context/state/grouping-decisions.json"
   }
 }
 ```
@@ -810,7 +856,7 @@ compress.reviewer-context
 emit.files
 emit.mcp
 emit.codex
-emit.cursor
+emit.opencode
 emit.html-report
 ```
 
@@ -819,7 +865,7 @@ emit.html-report
 ## Configuration Example
 
 ```ts
-import { defineContextProject } from '@context-compiler/core/sdk'
+import { defineContextProject } from '@context-compiler/core/config'
 
 export default defineContextProject({
   sources: [
@@ -1113,7 +1159,7 @@ The initial goal is to build a minimal compiler that supports:
 * MCP tool server.
 * Dynamic context query.
 * Agent integration.
-* Claude Code / Cursor / Codex adapters.
+* Claude Code / Codex / OpenCode adapters.
 
 ### Phase 4: Multi-source Connectors
 

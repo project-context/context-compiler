@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { validateGraphAdapterManifest } from '@context-compiler/core/graph'
-import { buildAdapterRuntimeInstallPlan, ensureAdapterRuntimeStatus, installManagedAdapterRuntime, resolveAdapterRuntimeStatus, resolveAdapterExtensionPaths, type AdapterRuntimeCommand, type ContextProgressEvent, type GraphAdapterManifest } from '@context-compiler/core/sdk'
+import { buildAdapterRuntimeInstallPlan, ensureAdapterRuntimeStatus, installManagedAdapterRuntime, resolveAdapterRuntimeStatus, resolveAdapterExtensionPaths, type AdapterRuntimeCommand, type ContextProgressEvent, type GraphAdapterManifest } from '@context-compiler/core/extensions'
 
 const outputDir = (rootDir: string) => join(rootDir, '.context')
 

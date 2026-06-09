@@ -3,9 +3,11 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 import { buildGraphFactHistory, explainGraphFact, revertGraphPatch } from '@context-compiler/core/runtime'
-import { applyGraphPatchBatch, createGraphRevision } from '@context-compiler/core/kernel'
+import { applyGraphPatchBatch } from '@context-compiler/core/kernel'
 import { writeGraphFiles } from '@context-compiler/core/graph'
-import { createContextEdge, createContextNode, type ContextGraph, type GraphPatch } from '@context-compiler/core/sdk'
+import { type GraphPatch } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph } from '@context-compiler/core/sdk'
+import { createGraphRevision } from '@context-compiler/core/graph'
 
 const sourceRef = {
   sourceId: 'workspace',
@@ -83,10 +85,9 @@ describe('graph fact runtime explain and revert', () => {
     }
 
     await writeGraphFiles(applied.graph, outputDir)
-    await mkdir(join(outputDir, 'graph', 'revisions'), { recursive: true })
-    await mkdir(join(outputDir, 'graph', 'patches'), { recursive: true })
-    await writeFile(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'), `${JSON.stringify(baseRevision)}\n${JSON.stringify(nextRevision)}\n`)
-    await writeFile(join(outputDir, 'graph', 'patches', 'patches.jsonl'), `${JSON.stringify(applied.appliedPatches[0])}\n`)
+    await mkdir(join(outputDir, 'graph'), { recursive: true })
+    await writeFile(join(outputDir, 'graph', 'revisions.jsonl'), `${JSON.stringify(baseRevision)}\n${JSON.stringify(nextRevision)}\n`)
+    await writeFile(join(outputDir, 'graph', 'patches.jsonl'), `${JSON.stringify(applied.appliedPatches[0])}\n`)
     await writeFile(
       join(outputDir, 'graph', 'evidence-reports.jsonl'),
       `${JSON.stringify({
@@ -161,6 +162,6 @@ describe('graph fact runtime explain and revert', () => {
 
     const submitted = await revertGraphPatch({ outputDir, patchId: 'PATCH-link-docs-code' })
     expect(submitted.submitted).toBe(true)
-    expect(await readFile(join(outputDir, 'graph', 'patches', 'submitted.jsonl'), 'utf8')).toContain('deprecate_edge')
+    expect(await readFile(join(outputDir, 'graph', 'submitted-patches.jsonl'), 'utf8')).toContain('deprecate_edge')
   })
 })

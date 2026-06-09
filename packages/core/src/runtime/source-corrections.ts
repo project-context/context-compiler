@@ -4,9 +4,6 @@ import type {
   ContextCorrectionOperationEffect,
   ContextCorrectionProposal,
   ContextCorrectionProposalKind,
-  ContextGraph,
-  ContextPackageRecord,
-  ContextProjectConfig,
   ContextSourceCorrectionDecision,
   ContextSourceCorrectionDecisionActionResult,
   ContextSourceCorrectionDecisionCounts,
@@ -14,19 +11,28 @@ import type {
   ContextSourceCorrectionDecisionStatus,
   ContextSourceCorrectionDecisionView,
   ContextSourceCorrectionDrift,
-  ContextSourceCorrectionReplayResult,
-  ContextSourceGroupRecord,
-  ContextSourceInventoryEntry,
+  ContextSourceCorrectionReplayResult
+} from '../contracts/corrections.js'
+import type {
+  ContextGraph,
   Diagnostic,
   GraphPatch,
   GraphPatchAuthor,
-  GraphRevision,
+  GraphRevision
+} from '../contracts/graph.js'
+import type {
+  ContextPackageRecord,
+  ContextSourceGroupRecord,
+  ContextSourceInventoryEntry
+} from '../contracts/sources.js'
+import type {
+  ContextProjectConfig,
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { loadGraphFiles } from '../graph/index.js'
 import { fingerprintValue } from '../graph/model.js'
-import { createGraphRevision } from '../kernel/index.js'
+import { createGraphRevision } from '../graph/revisions.js'
 import { buildContextCorrectionOperationPlan } from './corrections.js'
 
 export interface ListContextPackageCorrectionDecisionsOptions {
@@ -178,7 +184,7 @@ export async function proposeContextPackageCorrectionDecisionRevert(options: Pro
     written: true,
     decision: view.decision,
     proposal,
-    path: '.context/proposals/corrections.jsonl',
+    path: '.context/state/corrections.jsonl',
     diagnostics: []
   }
 }
@@ -242,11 +248,11 @@ export function buildContextSourceCorrectionDecisionViews(input: BuildDecisionVi
 async function readSourceCorrectionRuntime(outputDir: string): Promise<SourceCorrectionRuntimeFiles> {
   const [graph, packages, groups, entries, decisions, revisions] = await Promise.all([
     loadGraphFilesOptional(outputDir),
-    readJsonlOptional<ContextPackageRecord>(resolve(outputDir, 'sources', 'packages.jsonl')),
-    readJsonlOptional<ContextSourceGroupRecord>(resolve(outputDir, 'sources', 'groups.jsonl')),
-    readJsonlOptional<ContextSourceInventoryEntry>(resolve(outputDir, 'sources', 'inventory.jsonl')),
-    readJsonlOptional<ContextSourceCorrectionDecision>(resolve(outputDir, 'sources', 'correction-decisions.jsonl')),
-    readJsonlOptional<GraphRevision>(resolve(outputDir, 'graph', 'revisions', 'revisions.jsonl'))
+    readJsonlOptional<ContextPackageRecord>(resolve(outputDir, 'model', 'packages.jsonl')),
+    readJsonlOptional<ContextSourceGroupRecord>(resolve(outputDir, 'model', 'groups.jsonl')),
+    readJsonlOptional<ContextSourceInventoryEntry>(resolve(outputDir, 'model', 'source-inventory.jsonl')),
+    readJsonlOptional<ContextSourceCorrectionDecision>(resolve(outputDir, 'state', 'source-correction-decisions.jsonl')),
+    readJsonlOptional<GraphRevision>(resolve(outputDir, 'graph', 'revisions.jsonl'))
   ])
   return {
     graph,
@@ -507,7 +513,7 @@ function graphPatchForRevertDecision(
 }
 
 async function appendCorrectionOverlay(outputDir: string, proposal: ContextCorrectionProposal): Promise<void> {
-  const path = join(outputDir, 'proposals', 'corrections.jsonl')
+  const path = join(outputDir, 'state', 'corrections.jsonl')
   await mkdir(dirname(path), { recursive: true })
   await appendFile(path, `${JSON.stringify(proposal)}\n`, 'utf8')
 }
@@ -735,11 +741,13 @@ function sourceGroupsFromGraph(graph: ContextGraph): ContextSourceGroupRecord[] 
 function packageKindForSourceGroupKind(kind: ContextSourceGroupRecord['kind']): ContextPackageRecord['kind'] {
   switch (kind) {
     case 'repository':
-    case 'test_bundle':
       return 'code_repository'
+    case 'test_bundle':
+      return 'test_materials'
+    case 'api_bundle':
+      return 'api_contracts'
     case 'doc_bundle':
     case 'domain_area':
-    case 'api_bundle':
     case 'config_bundle':
       return 'product_docs'
     case 'analysis_bundle':
@@ -758,7 +766,7 @@ function packageKindForSourceGroupKind(kind: ContextSourceGroupRecord['kind']): 
 }
 
 function packageKind(value: string): ContextPackageRecord['kind'] {
-  const allowed = new Set<ContextPackageRecord['kind']>(['product_docs', 'code_repository', 'analysis', 'design', 'data', 'runtime', 'asset', 'unknown'])
+  const allowed = new Set<ContextPackageRecord['kind']>(['product_docs', 'code_repository', 'api_contracts', 'test_materials', 'analysis', 'design', 'data', 'runtime', 'asset', 'unknown'])
   return allowed.has(value as ContextPackageRecord['kind']) ? value as ContextPackageRecord['kind'] : 'unknown'
 }
 
@@ -821,8 +829,26 @@ async function readJsonlOptional<T>(path: string): Promise<T[]> {
     return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      const legacyPath = legacyRuntimePath(path)
+      if (legacyPath && legacyPath !== path) {
+        try {
+          const content = await readFile(legacyPath, 'utf8')
+          return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
+        } catch {
+          return []
+        }
+      }
       return []
     }
     throw error
   }
+}
+
+function legacyRuntimePath(path: string): string | undefined {
+  return path
+    .replace('/model/source-inventory.jsonl', '/sources/inventory.jsonl')
+    .replace('/model/groups.jsonl', '/sources/groups.jsonl')
+    .replace('/model/packages.jsonl', '/sources/packages.jsonl')
+    .replace('/state/source-correction-decisions.jsonl', '/sources/correction-decisions.jsonl')
+    .replace('/graph/revisions.jsonl', '/graph/revisions/revisions.jsonl')
 }

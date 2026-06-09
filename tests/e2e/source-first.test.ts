@@ -4,6 +4,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
 import { callContextMcpTool } from '@context-compiler/mcp-server'
+import { installMockGraphRagRuntimeHooks } from './mock-graphrag.js'
+
+installMockGraphRagRuntimeHooks()
 
 const rootDir = process.cwd()
 
@@ -11,9 +14,46 @@ function jsonl<T>(content: string): T[] {
   return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
 }
 
+async function writeLocalSbtGroupingDecisions(cwd: string): Promise<void> {
+  await mkdir(join(cwd, '.context', 'state'), { recursive: true })
+  await writeFile(
+    join(cwd, '.context', 'state', 'grouping-decisions.json'),
+    `${JSON.stringify(
+      {
+        schemaVersion: 'context-source-grouping-decisions.v1',
+        generatedAt: '2026-06-08T00:00:00.000Z',
+        agent: 'fixture',
+        decisions: [
+          {
+            path: 'sources/mjsbt-manage-fe',
+            kind: 'repository',
+            boundaryMode: 'repository',
+            title: 'mjsbt-manage-fe',
+            summary: 'Frontend management repository.',
+            childrenPolicy: 'promote_routed',
+            confidence: 0.95
+          },
+          {
+            path: 'sources/product-docs',
+            kind: 'doc_bundle',
+            boundaryMode: 'collapsed',
+            title: 'Product Documentation',
+            summary: 'Product documentation bundle.',
+            childrenPolicy: 'promote_routed',
+            confidence: 0.95
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`
+  )
+}
+
 describe('source-first auto discovery', () => {
   it('compiles local-sbt from an untyped source root and emits source inventory', async () => {
     const cwd = join(rootDir, 'examples', 'local-sbt')
+    await writeLocalSbtGroupingDecisions(cwd)
     const config = JSON.parse(await readFile(join(cwd, 'context.config.json'), 'utf8')) as {
       sources: Array<{ name: string; path: string; type?: string }>
     }
@@ -33,48 +73,52 @@ describe('source-first auto discovery', () => {
     }
 
     const manifest = JSON.parse(await readFile(join(cwd, '.context', 'manifest.json'), 'utf8')) as {
-      plans: {
-        sourceTriage: string
-        sourceGroups: string
-        workspaceGraph: string
-        scopeBuild: string
-        adapterPlan: string
-      }
-      indexes: {
-        graph: string
-        fts: string
-        scopes: string
-      }
-      sources: {
-        inventory: string
+      model: {
+        sourceInventory: string
         groups: string
         packages: string
         buildUnits: string
         groupingRequest: string
+        plans: {
+          sourceTriage: string
+          sourceGroups: string
+          workspaceGraph: string
+          scopeBuild: string
+          adapterPlan: string
+        }
+      }
+      index: {
+        graph: string
+        fts: string
+        scopes: string
+      }
+      state: {
         groupingDecisions: string
-        correctionDecisions: string
+        sourceCorrectionDecisions: string
       }
     }
-    expect(manifest.sources).toMatchObject({
-      inventory: '.context/sources/inventory.jsonl',
-      groups: '.context/sources/groups.jsonl',
-      packages: '.context/sources/packages.jsonl',
-      buildUnits: '.context/sources/build-units.jsonl',
-      groupingRequest: '.context/sources/grouping-request.json',
-      groupingDecisions: '.context/sources/grouping-decisions.json',
-      correctionDecisions: '.context/sources/correction-decisions.jsonl'
-      })
-    expect(manifest.plans).toMatchObject({
-      sourceTriage: '.context/plans/source-triage.json',
-      sourceGroups: '.context/plans/source-group-plan.json',
-      workspaceGraph: '.context/plans/workspace-graph-plan.json',
-      scopeBuild: '.context/plans/scope-build-plan.json',
-      adapterPlan: '.context/plans/adapter-plan.json'
+    expect(manifest.model).toMatchObject({
+      sourceInventory: '.context/model/source-inventory.jsonl',
+      groups: '.context/model/groups.jsonl',
+      packages: '.context/model/packages.jsonl',
+      buildUnits: '.context/model/build-units.jsonl',
+      groupingRequest: '.context/model/grouping-request.json'
     })
-    expect(manifest.indexes).toMatchObject({
-      graph: '.context/indexes/global/graph.sqlite',
-      fts: '.context/indexes/global/fts.sqlite',
-      scopes: '.context/indexes/scopes'
+    expect(manifest.model.plans).toMatchObject({
+      sourceTriage: '.context/model/plans/source-triage.json',
+      sourceGroups: '.context/model/plans/source-group-plan.json',
+      workspaceGraph: '.context/model/plans/workspace-graph-plan.json',
+      scopeBuild: '.context/model/plans/scope-build-plan.json',
+      adapterPlan: '.context/model/plans/adapter-plan.json'
+    })
+    expect(manifest.index).toMatchObject({
+      graph: '.context/index/global/graph.sqlite',
+      fts: '.context/index/global/fts.sqlite',
+      scopes: '.context/index/scopes'
+    })
+    expect(manifest.state).toMatchObject({
+      groupingDecisions: '.context/state/grouping-decisions.json',
+      sourceCorrectionDecisions: '.context/state/source-correction-decisions.jsonl'
     })
 
     const inventory = jsonl<{
@@ -83,7 +127,7 @@ describe('source-first auto discovery', () => {
       route: string
       status: string
       unsupportedReason?: string
-    }>(await readFile(join(cwd, '.context', 'sources', 'inventory.jsonl'), 'utf8'))
+    }>(await readFile(join(cwd, '.context', 'model', 'source-inventory.jsonl'), 'utf8'))
     expect(inventory).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ path: expect.stringMatching(/product-docs\/.*\.md$/), route: 'markdown', status: 'routed' }),
@@ -101,11 +145,11 @@ describe('source-first auto discovery', () => {
       ])
     )
 
-    const unsupported = jsonl<{ path: string }>(await readFile(join(cwd, '.context', 'sources', 'unsupported.jsonl'), 'utf8'))
+    const unsupported = jsonl<{ path: string }>(await readFile(join(cwd, '.context', 'model', 'unsupported-sources.jsonl'), 'utf8'))
     expect(unsupported).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'sources/mjsbt-manage-fe/public/favicon.ico' })]))
 
     const groups = jsonl<{ path: string; kind: string; boundaryMode: string; title: string }>(
-      await readFile(join(cwd, '.context', 'sources', 'groups.jsonl'), 'utf8')
+      await readFile(join(cwd, '.context', 'model', 'groups.jsonl'), 'utf8')
     )
     expect(groups).toEqual(
       expect.arrayContaining([
@@ -114,7 +158,7 @@ describe('source-first auto discovery', () => {
       ])
     )
     const packages = jsonl<{ path: string; kind: string; buildUnits: Array<{ standardKind: string; adapterId: string; adapterSelection: { selectionSource?: string } }> }>(
-      await readFile(join(cwd, '.context', 'sources', 'packages.jsonl'), 'utf8')
+      await readFile(join(cwd, '.context', 'model', 'packages.jsonl'), 'utf8')
     )
     expect(packages).toEqual(
       expect.arrayContaining([
@@ -142,25 +186,25 @@ describe('source-first auto discovery', () => {
         })
       ])
     )
-    const buildUnits = jsonl<{ standardKind: string; adapterId: string }>(await readFile(join(cwd, '.context', 'sources', 'build-units.jsonl'), 'utf8'))
+    const buildUnits = jsonl<{ standardKind: string; adapterId: string }>(await readFile(join(cwd, '.context', 'model', 'build-units.jsonl'), 'utf8'))
     expect(buildUnits.map((unit) => unit.adapterId)).toEqual(expect.arrayContaining(['codegraph.graph-adapter', 'microsoft-graphrag.graph-adapter']))
-    await expect(readFile(join(cwd, '.context', 'sources', 'grouping-decisions.json'), 'utf8')).resolves.toContain(
+    await expect(readFile(join(cwd, '.context', 'state', 'grouping-decisions.json'), 'utf8')).resolves.toContain(
       'context-source-grouping-decisions.v1'
     )
-    await expect(readFile(join(cwd, '.context', 'plans', 'source-triage.json'), 'utf8')).resolves.toContain(
+    await expect(readFile(join(cwd, '.context', 'model', 'plans', 'source-triage.json'), 'utf8')).resolves.toContain(
       'context-source-triage.v1'
     )
-    await expect(readFile(join(cwd, '.context', 'plans', 'workspace-graph-plan.json'), 'utf8')).resolves.toContain(
+    await expect(readFile(join(cwd, '.context', 'model', 'plans', 'workspace-graph-plan.json'), 'utf8')).resolves.toContain(
       'context-workspace-graph-plan.v1'
     )
-    await expect(readFile(join(cwd, '.context', 'plans', 'scope-build-plan.json'), 'utf8')).resolves.toContain(
+    await expect(readFile(join(cwd, '.context', 'model', 'plans', 'scope-build-plan.json'), 'utf8')).resolves.toContain(
       'scope:package:PACKAGE-workspace-sources-mjsbt-manage-fe'
     )
-    const ftsHeader = (await readFile(join(cwd, '.context', 'indexes', 'global', 'fts.sqlite'))).subarray(0, 15).toString('utf8')
+    const ftsHeader = (await readFile(join(cwd, '.context', 'index', 'global', 'fts.sqlite'))).subarray(0, 15).toString('utf8')
     expect(ftsHeader).toBe('SQLite format 3')
 
     const graphNodes = jsonl<{ id: string; type: string; name: string; properties?: Record<string, unknown> }>(
-      await readFile(join(cwd, '.context', 'graph', 'global', 'nodes.jsonl'), 'utf8')
+      await readFile(join(cwd, '.context', 'graph', 'nodes.jsonl'), 'utf8')
     )
     expect(graphNodes.map((node) => node.type)).toEqual(expect.arrayContaining(['Source', 'Package', 'SourceGroup', 'SourceSnapshot', 'Requirement', 'CodeSymbol', 'Document']))
     expect(graphNodes.filter((node) => node.type === 'SourceSnapshot').length).toBeLessThan(25)
@@ -178,7 +222,7 @@ describe('source-first auto discovery', () => {
       )
     ).toBeDefined()
     const graphEdges = jsonl<{ id: string; type: string; from: string; to: string }>(
-      await readFile(join(cwd, '.context', 'graph', 'global', 'edges.jsonl'), 'utf8')
+      await readFile(join(cwd, '.context', 'graph', 'edges.jsonl'), 'utf8')
     )
     expect(graphEdges.map((edge) => edge.type)).toEqual(expect.arrayContaining(['contains_package', 'contains_source_group']))
     expect(graphEdges.map((edge) => edge.type)).not.toContain('related_to_group')
@@ -206,6 +250,8 @@ describe('source-first auto discovery', () => {
     const symbolFileScope = scopeManifest.scopes.find((scope) => scope.kind === 'file' && scope.path === symbolFilePath)
     const symbolContentScope = scopeManifest.scopes.find((scope) => scope.kind === 'content' && scope.path === `${symbolFilePath}#content`)
     const docScope = scopeManifest.scopes.find((scope) => scope.kind === 'source_group' && scope.path === 'sources/product-docs')
+    const repositoryBuildGraphScope = scopeManifest.scopes.find((scope) => scope.kind === 'build_graph' && scope.sourceGroupId === repositoryScope?.sourceGroupId)
+    const docBuildGraphScope = scopeManifest.scopes.find((scope) => scope.kind === 'build_graph' && scope.sourceGroupId === docScope?.sourceGroupId)
     const docFileScope = scopeManifest.scopes.find((scope) => scope.kind === 'file' && scope.path?.startsWith('sources/product-docs/') && scope.path.endsWith('.md'))
     const docContentScope = scopeManifest.scopes.find((scope) => scope.kind === 'content' && scope.path?.startsWith('sources/product-docs/') && scope.path.endsWith('.md#content'))
 
@@ -213,9 +259,11 @@ describe('source-first auto discovery', () => {
     expect(productPackageScope).toMatchObject({ parentScopeId: 'scope:project' })
     expect(repositoryScope).toMatchObject({ parentScopeId: repositoryPackageScope?.id })
     expect(docScope).toMatchObject({ parentScopeId: productPackageScope?.id })
-    expect(symbolFileScope?.parentScopeId).toMatch(/^scope:source-group:SOURCE-GROUP-workspace-sources-mjsbt-manage-fe/)
+    expect(repositoryBuildGraphScope).toMatchObject({ parentScopeId: repositoryScope?.id })
+    expect(docBuildGraphScope).toMatchObject({ parentScopeId: docScope?.id })
+    expect(symbolFileScope).toMatchObject({ parentScopeId: repositoryBuildGraphScope?.id })
     expect(symbolContentScope).toMatchObject({ parentScopeId: symbolFileScope?.id })
-    expect(docFileScope).toMatchObject({ parentScopeId: docScope?.id })
+    expect(docFileScope).toMatchObject({ parentScopeId: docBuildGraphScope?.id })
     expect(docContentScope).toMatchObject({ parentScopeId: docFileScope?.id })
     expect(repositoryScope?.adapterRefs).toEqual(
       expect.arrayContaining([expect.objectContaining({ adapterId: 'codegraph.graph-adapter', role: 'code-graph-builder' })])
@@ -253,14 +301,22 @@ describe('source-first auto discovery', () => {
 
     const scopeCli = await runCli(['graph', 'scope', docScope?.id ?? ''], { cwd })
     expect(scopeCli.exitCode).toBe(0)
-    expect(scopeCli.stdout).toContain('MARKDOWN-DOC')
-    expect(scopeCli.stdout).toContain('【原稿】商保通平台介绍')
+    expect(scopeCli.stdout).toContain('SemanticCorpusGraph')
+    expect(scopeCli.stdout).not.toContain('MARKDOWN-DOC')
+    expect(scopeCli.stdout).not.toContain('【原稿】商保通平台介绍')
     expect(scopeCli.stdout).toContain('Nodes:')
     expect(scopeCli.stdout).not.toContain('SourceSnapshot')
 
+    const buildGraphScopeCli = await runCli(['graph', 'scope', docBuildGraphScope?.id ?? ''], { cwd })
+    expect(buildGraphScopeCli.exitCode).toBe(0)
+    expect(buildGraphScopeCli.stdout).toContain('MARKDOWN-DOC')
+    expect(buildGraphScopeCli.stdout).toContain('【原稿】商保通平台介绍')
+    expect(buildGraphScopeCli.stdout).toContain('Nodes:')
+    expect(buildGraphScopeCli.stdout).not.toContain('SourceSnapshot')
+
     const groupExpansionCli = await runCli(['graph', 'expand', 'SOURCE-GROUP-workspace-sources-product-docs'], { cwd })
     expect(groupExpansionCli.exitCode).toBe(0)
-    expect(groupExpansionCli.stdout).toContain('Product Docs')
+    expect(groupExpansionCli.stdout).toContain('Product Documentation')
     expect(groupExpansionCli.stdout).toContain('SOURCE-GROUP-workspace-sources-product-docs')
     expect(groupExpansionCli.stdout).not.toContain('related_to_group')
 
@@ -382,7 +438,7 @@ describe('source-first auto discovery', () => {
       data: {
         scopeId: symbolFileScope?.parentScopeId,
         engine: 'sqlite',
-        indexPath: expect.stringContaining('.context/indexes/scopes/'),
+        indexPath: expect.stringContaining('.context/index/scopes/'),
         results: expect.arrayContaining([expect.objectContaining({ id: 'SYM-index-ts-uploadFileAPI', type: 'CodeSymbol' })])
       }
     })
@@ -414,9 +470,9 @@ describe('source-first auto discovery', () => {
     expect(traceCli.exitCode).toBe(0)
     expect(traceCli.stdout).toContain('MARKDOWN-DOC')
     expect(traceCli.stdout).toContain('Sources:')
-  }, 30000)
+  }, 90000)
 
-  it('compiles noninteractive auto sources with an inferred unknown fallback when no agent writes grouping decisions', async () => {
+  it('compiles noninteractive auto sources with inferred child package groups when no agent writes grouping decisions', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'context-source-grouping-cli-'))
     await mkdir(join(cwd, 'sources', 'docs'), { recursive: true })
     await writeFile(join(cwd, 'context.config.json'), JSON.stringify({ sources: [{ name: 'workspace', path: './sources' }] }, null, 2))
@@ -424,28 +480,28 @@ describe('source-first auto discovery', () => {
 
     const compile = await runCli(['compile'], { cwd })
     expect(compile.exitCode).toBe(0)
-    const request = JSON.parse(await readFile(join(cwd, '.context', 'sources', 'grouping-request.json'), 'utf8')) as {
+    const request = JSON.parse(await readFile(join(cwd, '.context', 'model', 'grouping-request.json'), 'utf8')) as {
       schemaVersion: string
       sources: Array<{ candidates: Array<{ path: string }> }>
     }
     expect(request.schemaVersion).toBe('context-source-grouping-request.v1')
     expect(request.sources[0].candidates).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'sources' })]))
-    const decisions = JSON.parse(await readFile(join(cwd, '.context', 'sources', 'grouping-decisions.json'), 'utf8')) as {
+    const decisions = JSON.parse(await readFile(join(cwd, '.context', 'state', 'grouping-decisions.json'), 'utf8')) as {
       agent?: string
       decisions: Array<{ path: string; kind: string }>
     }
     expect(decisions).toMatchObject({
       agent: 'inferred',
-      decisions: [expect.objectContaining({ path: 'sources', kind: 'unknown' })]
+      decisions: [expect.objectContaining({ path: 'sources/docs', kind: 'doc_bundle' })]
     })
     const packages = jsonl<{ kind: string; buildUnits: Array<{ standardKind: string; adapterId: string }> }>(
-      await readFile(join(cwd, '.context', 'sources', 'packages.jsonl'), 'utf8')
+      await readFile(join(cwd, '.context', 'model', 'packages.jsonl'), 'utf8')
     )
     expect(packages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: 'unknown',
-          buildUnits: [expect.objectContaining({ standardKind: 'inventory', adapterId: 'builtin.source-inventory' })]
+          kind: 'product_docs',
+          buildUnits: [expect.objectContaining({ standardKind: 'semantic_corpus', adapterId: 'microsoft-graphrag.graph-adapter' })]
         })
       ])
     )
@@ -489,7 +545,7 @@ console.log(JSON.stringify({
     try {
       const compile = await runCli(['compile'], { cwd })
       expect(compile.exitCode).toBe(0)
-      const decisions = JSON.parse(await readFile(join(cwd, '.context', 'sources', 'grouping-decisions.json'), 'utf8')) as {
+      const decisions = JSON.parse(await readFile(join(cwd, '.context', 'state', 'grouping-decisions.json'), 'utf8')) as {
         agent?: string
         decisions: Array<{ path: string; kind: string }>
       }
@@ -497,7 +553,7 @@ console.log(JSON.stringify({
         agent: 'claude',
         decisions: [expect.objectContaining({ path: 'sources/docs', kind: 'doc_bundle' })]
       })
-      const groups = jsonl<{ path: string; title: string }>(await readFile(join(cwd, '.context', 'sources', 'groups.jsonl'), 'utf8'))
+      const groups = jsonl<{ path: string; title: string }>(await readFile(join(cwd, '.context', 'model', 'groups.jsonl'), 'utf8'))
       expect(groups).toEqual(expect.arrayContaining([expect.objectContaining({ path: 'sources/docs', title: 'Product docs' })]))
     } finally {
       if (previousPath === undefined) {

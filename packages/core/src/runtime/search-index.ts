@@ -2,7 +2,7 @@ import { access, readFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { resolve } from 'node:path'
-import type { ContextGraph, ContextGraphScopeManifest, ContextNode, Diagnostic } from '../contracts/index.js'
+import type { ContextGraph, ContextGraphScopeManifest, ContextNode, Diagnostic } from '../contracts/graph.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { queryGraph } from '../graph/index.js'
 
@@ -31,8 +31,8 @@ export async function searchContextIndex(input: SearchContextIndexInput): Promis
   const limit = input.limit ?? 20
   const scoped = input.scopeId ? await resolveScopedSearch(input.outputDir, input.scopeId) : undefined
   const graph = scoped?.graph ?? input.graph
-  const indexPath = scoped?.indexPath ?? '.context/indexes/global/fts.sqlite'
-  const sqlitePath = resolveContextPath(input.outputDir, indexPath)
+  const requestedIndexPath = scoped?.indexPath ?? '.context/index/global/fts.sqlite'
+  const { indexPath, sqlitePath } = await resolveReadableIndexPath(input.outputDir, requestedIndexPath)
   const missingDiagnostic = await missingIndexDiagnostic(sqlitePath, indexPath)
   if (missingDiagnostic) {
     return memoryFallback({ ...input, graph, indexPath, reason: missingDiagnostic })
@@ -77,6 +77,26 @@ export async function searchContextIndex(input: SearchContextIndexInput): Promis
     scopeId: input.scopeId,
     results: fallbackResults,
     diagnostics: [searchDiagnostic('search.index.empty', indexPath, `SQLite FTS index returned no hydrated nodes for query: ${input.query}`)]
+  }
+}
+
+async function resolveReadableIndexPath(outputDir: string, indexPath: string): Promise<{ indexPath: string; sqlitePath: string }> {
+  const sqlitePath = resolveContextPath(outputDir, indexPath)
+  try {
+    await access(sqlitePath)
+    return { indexPath, sqlitePath }
+  } catch {
+    const legacyIndexPath = indexPath.replace('.context/index/', '.context/indexes/')
+    if (legacyIndexPath !== indexPath) {
+      const legacySqlitePath = resolveContextPath(outputDir, legacyIndexPath)
+      try {
+        await access(legacySqlitePath)
+        return { indexPath: legacyIndexPath, sqlitePath: legacySqlitePath }
+      } catch {
+        return { indexPath, sqlitePath }
+      }
+    }
+    return { indexPath, sqlitePath }
   }
 }
 

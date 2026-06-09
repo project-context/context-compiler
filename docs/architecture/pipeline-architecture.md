@@ -4,9 +4,9 @@ Context Compiler is organized as a stable compiler kernel plus replaceable pipel
 
 All major architecture work should align with the [Super Data Network goal](./super-data-network-goal.md): a package-first, evidence-traceable network where humans and agents start outside-in from materials, drill through L0/L1/L2/L3, use the Meta Layer for evidence, correction, revision, confidence, and permissions, and keep project context converging.
 
-The compiled output is a project-level `.context/` runtime workspace, not only a directory of Markdown files. A runtime workspace can contain static context artifacts, a project graph, JSON indexes, runtime providers, MCP tool metadata, project tool declarations, project skills, generated agent instructions, diagnostics, and cacheable runtime data.
+The compiled output is a project-level agent-native `.context/` runtime workspace, not a directory of Markdown files. A runtime workspace contains machine-optimized model records, source maps, graph facts, SQLite/FTS indexes, structured packs, runtime providers, MCP tool/resource metadata, generated agent bootstrap instructions, diagnostics, state, and debug projections.
 
-The runtime workspace is compiler-generated. Users provide project materials and source boundaries; Context Compiler infers which MCP tools, project tools, skills, plugins, providers, and agent integrations are useful for that project.
+The runtime workspace is compiler-generated. Users provide project materials and source boundaries; Context Compiler infers which MCP tools, project tools, skills, plugins, providers, and agent integrations are useful for that project. See [Agent-Native `.context` Runtime Workspace](./context-runtime-workspace.zh.md) for the directory contract.
 
 ## Mental Model
 
@@ -119,4 +119,4 @@ The static local pipeline is kept as a manual fallback, but normal user config s
 
 `ingest.local-files` is specifically a source-first local ingest adapter. It traverses local files, routes them to source records, and reads raw artifacts. The reusable source modeling logic for source inventory, L0 packages, L1 source groups, grouping/correction decisions, and source-first build units lives in `@context-compiler/core/source-model`.
 
-`compress.runtime-plan` infers the generated runtime layer from graph facts, context packs, indexes, inventory, and diagnostics. The default file emitter then serializes that plan into `.context/context-manifest.json`, generated indexes, MCP tool metadata and resources, project tool declarations, project skills, generated Codex/Claude/Cursor instructions, optional runtime provider declarations, `runtime/runtime-plan.json`, `runtime/agent-install-plan.json`, append-only runtime trace/run summary files, and `diagnostics/context-health.json`.
+`compress.runtime-plan` infers the generated runtime layer from graph facts, context packs, indexes, inventory, and diagnostics. The default file emitter then serializes that plan into `.context/manifest.json`, `.context/health.json`, `model/`, `store/`, `graph/`, `index/`, `packs/`, MCP tool/resource metadata, runtime tool/skill/plugin declarations, generated Codex/Claude/OpenCode instructions, optional runtime provider declarations, `runtime/runtime-plan.json`, `runtime/agent-install-plan.json`, append-only runtime trace/run summary files, and debug reports under `debug/`.

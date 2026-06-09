@@ -1,32 +1,26 @@
 import type {
   ContextAgentInstallPlan,
   ContextAgentIntegration,
-  ContextGraph,
   ContextPack,
   ContextPluginDefinition,
-  ContextProjectConfig,
   ContextRuntimeConfig,
   ContextRuntimeHealth,
   ContextRuntimeManifest,
   ContextRuntimePlan,
   ContextRuntimeProvider,
-  EvidenceReport,
-  GraphPatch,
-  GraphRevision,
-  PlanningCycle,
-  PlanningPack,
-  RehomeProposal,
-  ContextSourceFirstPlans,
-  ContextSourceInventory,
   ContextSkillDefinition,
   ContextToolDefinition
-} from '../contracts/index.js'
+} from '../contracts/runtime.js'
+import type { ContextProjectConfig } from '../contracts/config.js'
+import type { ContextGraph, EvidenceReport, GraphPatch, GraphRevision, PlanningCycle, PlanningPack, RehomeProposal } from '../contracts/graph.js'
+import type { ContextSourceFirstPlans, ContextSourceInventory } from '../contracts/sources.js'
 import { buildContextAgentInstallPlan } from './agent-integration.js'
 import { buildContextRuntimeHealth } from './health.js'
 import { buildContextIndexes, type ContextIndexes } from './indexes.js'
 import { buildContextRuntimePlan } from './planner.js'
-import { buildSourceFirstPlans } from '../planning/index.js'
-import { buildPlanningPack, createGraphRevision } from '../kernel/index.js'
+import { buildSourceFirstPlans } from '../source-model/source-first-plans.js'
+import { buildPlanningPack } from '../kernel/index.js'
+import { createGraphRevision } from '../graph/revisions.js'
 import { fingerprintValue } from '../graph/model.js'
 
 export interface ContextRuntimeWorkspace {
@@ -42,6 +36,7 @@ export interface ContextRuntimeWorkspace {
   providers: ContextRuntimeProvider[]
   sourceInventory: ContextSourceInventory
   sourceFirstPlans: ContextSourceFirstPlans
+  packs: ContextPack[]
   graphKernel: ContextGraphKernelWorkspace
   agentInstallPlan: ContextAgentInstallPlan
   health: ContextRuntimeHealth
@@ -117,16 +112,18 @@ export function buildContextRuntimeWorkspace(
       graph: {
         model: 'typed-property-graph',
         storage: 'jsonl+sqlite',
-        nodes: '.context/graph/global/nodes.jsonl',
-        edges: '.context/graph/global/edges.jsonl',
+        nodes: '.context/graph/nodes.jsonl',
+        edges: '.context/graph/edges.jsonl',
+        diagnostics: '.context/graph/diagnostics.jsonl',
         subgraphs: '.context/graph/subgraphs',
         scopes: '.context/graph/scopes/manifest.json',
         partitions: '.context/graph/partitions',
-        revisions: '.context/graph/revisions/revisions.jsonl',
-        patches: '.context/graph/patches/patches.jsonl',
+        revisions: '.context/graph/revisions.jsonl',
+        patches: '.context/graph/patches.jsonl',
+        submittedPatches: '.context/graph/submitted-patches.jsonl',
         evidenceReports: '.context/graph/evidence-reports.jsonl'
       },
-      indexes: {
+      index: {
         graph: indexes.manifest.files.graph,
         symbols: indexes.manifest.files.symbols,
         apis: indexes.manifest.files.apis,
@@ -137,52 +134,58 @@ export function buildContextRuntimeWorkspace(
         fingerprints: indexes.manifest.files.fingerprints,
         scopes: indexes.manifest.files.scopes
       },
-      plans: {
-        planningPack: '.context/plans/planning-pack.json',
-        planningCycles: '.context/plans/planning-cycles.jsonl',
-        sourceTriage: '.context/plans/source-triage.json',
-        sourceGroups: '.context/plans/source-group-plan.json',
-        workspaceGraph: '.context/plans/workspace-graph-plan.json',
-        scopeBuild: '.context/plans/scope-build-plan.json',
-        adapterPlan: '.context/plans/adapter-plan.json'
+      model: {
+        sourceInventory: '.context/model/source-inventory.jsonl',
+        sourceRoutes: '.context/model/source-routes.jsonl',
+        unsupportedSources: '.context/model/unsupported-sources.jsonl',
+        sourceSummary: '.context/model/source-summary.json',
+        packages: '.context/model/packages.jsonl',
+        groups: '.context/model/groups.jsonl',
+        buildUnits: '.context/model/build-units.jsonl',
+        scopes: '.context/model/scopes.jsonl',
+        claims: '.context/model/claims.jsonl',
+        groupingRequest: '.context/model/grouping-request.json',
+        plans: {
+          planningPack: '.context/model/plans/planning-pack.json',
+          planningCycles: '.context/model/plans/planning-cycles.jsonl',
+          sourceTriage: '.context/model/plans/source-triage.json',
+          sourceGroups: '.context/model/plans/source-group-plan.json',
+          workspaceGraph: '.context/model/plans/workspace-graph-plan.json',
+          scopeBuild: '.context/model/plans/scope-build-plan.json',
+          adapterPlan: '.context/model/plans/adapter-plan.json'
+        }
       },
-      proposals: {
-        rehome: '.context/proposals/rehome-proposals.jsonl',
-        corrections: '.context/proposals/corrections.jsonl'
+      store: {
+        blobs: '.context/store/blobs',
+        chunks: '.context/store/chunks.jsonl',
+        sourceMap: '.context/store/source-map.jsonl'
       },
-      artifacts: {
-        projectBrief: '.context/artifacts/project/brief.md',
-        domains: '.context/artifacts/domains',
-        tasks: '.context/artifacts/tasks/generated',
-        reports: '.context/artifacts/reports'
+      packs: {
+        views: '.context/packs/views',
+        tasks: '.context/packs/tasks'
       },
-      sources: {
-        inventory: '.context/sources/inventory.jsonl',
-        routes: '.context/sources/routes.jsonl',
-        unsupported: '.context/sources/unsupported.jsonl',
-        summary: '.context/sources/summary.json',
-        groups: '.context/sources/groups.jsonl',
-        packages: '.context/sources/packages.jsonl',
-        buildUnits: '.context/sources/build-units.jsonl',
-        groupingRequest: '.context/sources/grouping-request.json',
-        groupingDecisions: '.context/sources/grouping-decisions.json',
-        correctionDecisions: '.context/sources/correction-decisions.jsonl'
-      },
-      packs: packs.map((pack) => ({ id: pack.id, kind: pack.kind, view: pack.view, task: pack.task })),
+      packEntries: packs.map((pack) => ({
+        id: pack.id,
+        kind: pack.kind,
+        view: pack.view,
+        task: pack.task,
+        path: pack.view ? `.context/packs/views/${pack.view}.json` : pack.task ? `.context/packs/tasks/${pack.id}.json` : undefined
+      })),
       runtime: {
         providers: '.context/runtime/providers',
         mcp: '.context/mcp/server.config.json',
-        tools: '.context/tools',
+        tools: '.context/runtime/tools',
         plan: '.context/runtime/runtime-plan.json',
         config: '.context/runtime/runtime.config.json',
         trace: '.context/runtime/trace.jsonl',
         runSummary: '.context/runtime/run-summary.json',
         agentInstallPlan: '.context/runtime/agent-install-plan.json',
         freshness: { status: 'fresh', checkedAt: compiledAt },
-        installStatus: { codex: 'planned', claude: 'planned' },
+        installStatus: { codex: 'planned', claude: 'planned', opencode: 'planned' },
         capabilitySurfaces: {
           codex: ['AGENTS.md', '.codex/config.toml', '.agents/skills', '.codex/agents'],
-          claude: ['CLAUDE.md', '.mcp.json', '.claude/skills', '.claude/settings.json']
+          claude: ['CLAUDE.md', '.mcp.json', '.claude/skills', '.claude/settings.json'],
+          opencode: ['AGENTS.md', 'opencode.json', '.opencode/skills']
         },
         skills: runtimeConfig.skills.map((skill) => skill.id),
         agents: runtimeConfig.agents.map((agent) => agent.id),
@@ -191,12 +194,26 @@ export function buildContextRuntimeWorkspace(
       agents: {
         claude: '.context/agents/claude/CLAUDE.generated.md',
         codex: '.context/agents/codex/AGENTS.generated.md',
-        cursor: '.context/agents/cursor/rules/context.generated.md'
+        opencode: '.context/agents/opencode/AGENTS.generated.md'
       },
-      diagnostics: {
-        health: '.context/diagnostics/context-health.json',
-        latest: '.context/diagnostics/latest.jsonl',
-        report: '.context/artifacts/reports/diagnostics.md'
+      debug: {
+        views: '.context/debug/views',
+        reports: '.context/debug/reports',
+        projectBrief: '.context/debug/project/brief.md',
+        domains: '.context/debug/domains',
+        maps: '.context/debug/maps',
+        latestDiagnostics: '.context/debug/diagnostics/latest.jsonl'
+      },
+      state: {
+        corrections: '.context/state/corrections.jsonl',
+        rehomeProposals: '.context/state/rehome-proposals.jsonl',
+        groupingDecisions: '.context/state/grouping-decisions.json',
+        sourceCorrectionDecisions: '.context/state/source-correction-decisions.jsonl',
+        approvals: '.context/state/approvals.jsonl',
+        notes: '.context/state/notes.jsonl'
+      },
+      cache: {
+        root: '.context/cache'
       }
     },
     indexes,
@@ -210,6 +227,7 @@ export function buildContextRuntimeWorkspace(
     providers: plan.providers,
     sourceInventory,
     sourceFirstPlans,
+    packs,
     graphKernel,
     agentInstallPlan,
     health
@@ -233,8 +251,8 @@ function buildGraphKernelWorkspace(
     id: `CYCLE-${fingerprintValue({ revisionId: seedRevision.id, generatedAt }).slice(0, 16)}`,
     generatedAt,
     status: 'reconciled',
-    planningPackRef: '.context/plans/planning-pack.json',
-    requestRef: sourceInventory.groupingRequest ? '.context/sources/grouping-request.json' : undefined,
+    planningPackRef: '.context/model/plans/planning-pack.json',
+    requestRef: sourceInventory.groupingRequest ? '.context/model/grouping-request.json' : undefined,
     patchIds: [],
     revisionIds: [seedRevision.id],
     diagnostics: []

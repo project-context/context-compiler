@@ -1,26 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type {
-  ContextBuildUnitView,
   ContextEdge,
   ContextGraph,
   ContextGraphAdapterRef,
   ContextGraphScope,
   ContextGraphScopeManifest,
   ContextNode,
-  ContextCorrectionProposal,
-  ContextPackageBuildUnit,
-  ContextPackageCorrectionSummary,
-  ContextPackageExpansion,
-  ContextPackageList,
-  ContextPackageRecord,
-  ContextPackageSearch,
-  ContextPackageStats,
-  ContextPackageSummary,
-  ContextPackageView,
-  ContextSourceCorrectionDecision,
-  ContextSourceGroupRecord,
-  ContextSourceInventoryEntry,
   Diagnostic,
   EvidenceFinding,
   EvidenceReport,
@@ -28,9 +14,29 @@ import type {
   GraphDrillMode,
   GraphDrillNextAction,
   GraphRevision,
-  RehomeProposal,
+  RehomeProposal
+} from '../contracts/graph.js'
+import type {
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
+import type {
+  ContextBuildUnitView,
+  ContextCorrectionProposal,
+  ContextPackageCorrectionSummary,
+  ContextPackageExpansion,
+  ContextPackageList,
+  ContextPackageSearch,
+  ContextPackageStats,
+  ContextPackageSummary,
+  ContextPackageView,
+  ContextSourceCorrectionDecision
+} from '../contracts/corrections.js'
+import type {
+  ContextPackageBuildUnit,
+  ContextPackageRecord,
+  ContextSourceGroupRecord,
+  ContextSourceInventoryEntry
+} from '../contracts/sources.js'
 import { loadGraphFiles } from '../graph/index.js'
 import { scopeDirName, scopeIdForPackage, scopeIdForSourceGroup } from '../graph/scopes.js'
 import { buildContextCorrectionProposals } from './corrections.js'
@@ -183,17 +189,17 @@ async function readPackageRuntime(outputDir: string): Promise<PackageRuntimeFile
   const [graph, manifest, packages, groups, buildUnits, entries, evidenceReports, rehomeProposals, sourceCorrectionDecisions, overlayProposals, ledgerPatches, submittedPatches, revisions] = await Promise.all([
     loadGraphFiles(outputDir),
     readScopeManifest(outputDir),
-    readJsonlOptional<ContextPackageRecord>(resolve(outputDir, 'sources', 'packages.jsonl')),
-    readJsonlOptional<ContextSourceGroupRecord>(resolve(outputDir, 'sources', 'groups.jsonl')),
-    readJsonlOptional<ContextPackageBuildUnit>(resolve(outputDir, 'sources', 'build-units.jsonl')),
-    readJsonlOptional<ContextSourceInventoryEntry>(resolve(outputDir, 'sources', 'inventory.jsonl')),
+    readJsonlOptional<ContextPackageRecord>(resolve(outputDir, 'model', 'packages.jsonl')),
+    readJsonlOptional<ContextSourceGroupRecord>(resolve(outputDir, 'model', 'groups.jsonl')),
+    readJsonlOptional<ContextPackageBuildUnit>(resolve(outputDir, 'model', 'build-units.jsonl')),
+    readJsonlOptional<ContextSourceInventoryEntry>(resolve(outputDir, 'model', 'source-inventory.jsonl')),
     readJsonlOptional<EvidenceReport>(resolve(outputDir, 'graph', 'evidence-reports.jsonl')),
-    readJsonlOptional<RehomeProposal>(resolve(outputDir, 'proposals', 'rehome-proposals.jsonl')),
-    readJsonlOptional<ContextSourceCorrectionDecision>(resolve(outputDir, 'sources', 'correction-decisions.jsonl')),
-    readJsonlOptional<ContextCorrectionProposal>(resolve(outputDir, 'proposals', 'corrections.jsonl')),
-    readJsonlOptional<GraphPatch>(resolve(outputDir, 'graph', 'patches', 'patches.jsonl')),
-    readJsonlOptional<GraphPatch>(resolve(outputDir, 'graph', 'patches', 'submitted.jsonl')),
-    readJsonlOptional<GraphRevision>(resolve(outputDir, 'graph', 'revisions', 'revisions.jsonl'))
+    readJsonlOptional<RehomeProposal>(resolve(outputDir, 'state', 'rehome-proposals.jsonl')),
+    readJsonlOptional<ContextSourceCorrectionDecision>(resolve(outputDir, 'state', 'source-correction-decisions.jsonl')),
+    readJsonlOptional<ContextCorrectionProposal>(resolve(outputDir, 'state', 'corrections.jsonl')),
+    readJsonlOptional<GraphPatch>(resolve(outputDir, 'graph', 'patches.jsonl')),
+    readJsonlOptional<GraphPatch>(resolve(outputDir, 'graph', 'submitted-patches.jsonl')),
+    readJsonlOptional<GraphRevision>(resolve(outputDir, 'graph', 'revisions.jsonl'))
   ])
   const graphGroups = sourceGroupsFromGraph(graph)
   const sourceGroups = groups.length > 0 ? groups : graphGroups.length > 0 ? graphGroups : sourceGroupsFromEntries(entries)
@@ -850,6 +856,10 @@ function packageKindForGroup(kind: ContextSourceGroupRecord['kind']): ContextPac
   switch (kind) {
     case 'repository':
       return 'code_repository'
+    case 'test_bundle':
+      return 'test_materials'
+    case 'api_bundle':
+      return 'api_contracts'
     case 'doc_bundle':
     case 'domain_area':
       return 'product_docs'
@@ -858,7 +868,6 @@ function packageKindForGroup(kind: ContextSourceGroupRecord['kind']): ContextPac
     case 'design_bundle':
       return 'design'
     case 'data_bundle':
-    case 'api_bundle':
       return 'data'
     case 'runtime_bundle':
     case 'config_bundle':
@@ -877,7 +886,7 @@ function standardKindForGroup(kind: ContextSourceGroupRecord['kind']): ContextPa
   if (kind === 'api_bundle') {
     return 'api_contracts'
   }
-  if (kind === 'doc_bundle' || kind === 'analysis_bundle' || kind === 'domain_area' || kind === 'design_bundle') {
+  if (kind === 'doc_bundle' || kind === 'analysis_bundle' || kind === 'domain_area' || kind === 'design_bundle' || kind === 'test_bundle') {
     return 'semantic_corpus'
   }
   return 'inventory'
@@ -941,7 +950,7 @@ function adapterSelectionForStandardKind(
 }
 
 function packageKind(value: string | undefined): ContextPackageRecord['kind'] {
-  const allowed = new Set<ContextPackageRecord['kind']>(['product_docs', 'code_repository', 'analysis', 'design', 'data', 'runtime', 'asset', 'unknown'])
+  const allowed = new Set<ContextPackageRecord['kind']>(['product_docs', 'code_repository', 'api_contracts', 'test_materials', 'analysis', 'design', 'data', 'runtime', 'asset', 'unknown'])
   return allowed.has(value as ContextPackageRecord['kind']) ? value as ContextPackageRecord['kind'] : 'unknown'
 }
 
@@ -979,8 +988,31 @@ async function readJsonlOptional<T>(path: string): Promise<T[]> {
     const content = await readFile(path, 'utf8')
     return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
   } catch {
+    const legacyPath = legacyRuntimePath(path)
+    if (legacyPath && legacyPath !== path) {
+      try {
+        const content = await readFile(legacyPath, 'utf8')
+        return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
+      } catch {
+        return []
+      }
+    }
     return []
   }
+}
+
+function legacyRuntimePath(path: string): string | undefined {
+  return path
+    .replace('/model/source-inventory.jsonl', '/sources/inventory.jsonl')
+    .replace('/model/groups.jsonl', '/sources/groups.jsonl')
+    .replace('/model/packages.jsonl', '/sources/packages.jsonl')
+    .replace('/model/build-units.jsonl', '/sources/build-units.jsonl')
+    .replace('/state/rehome-proposals.jsonl', '/proposals/rehome-proposals.jsonl')
+    .replace('/state/source-correction-decisions.jsonl', '/sources/correction-decisions.jsonl')
+    .replace('/state/corrections.jsonl', '/proposals/corrections.jsonl')
+    .replace('/graph/patches.jsonl', '/graph/patches/patches.jsonl')
+    .replace('/graph/submitted-patches.jsonl', '/graph/patches/submitted.jsonl')
+    .replace('/graph/revisions.jsonl', '/graph/revisions/revisions.jsonl')
 }
 
 function resolveContextPath(outputDir: string, path: string): string {

@@ -4,6 +4,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
 import { callContextMcpTool } from '@context-compiler/mcp-server'
+import { installMockGraphRagRuntimeHooks } from './mock-graphrag.js'
+
+installMockGraphRagRuntimeHooks()
 
 async function writeMcpProject(rootDir: string) {
   await mkdir(join(rootDir, 'docs', 'product'), { recursive: true })

@@ -80,6 +80,8 @@ export interface ContextSourceGroupRecord {
 export type ContextPackageKind =
   | 'product_docs'
   | 'code_repository'
+  | 'api_contracts'
+  | 'test_materials'
   | 'analysis'
   | 'design'
   | 'data'

@@ -12,7 +12,7 @@ import type {
   GraphViewerInspectResult,
   GraphViewerOverview,
   GraphViewerSearchResult
-} from '../contracts/index.js'
+} from '../contracts/graph.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { loadGraphFiles } from '../graph/index.js'
 import { scopeIdForPackage, scopeIdForSourceGroup } from '../graph/scopes.js'
@@ -297,12 +297,34 @@ function graphTypeForScope(scope: ContextGraphScope): string {
       return 'PackageGraph'
     case 'source_group':
       return 'SourceGroupGraph'
+    case 'build_graph':
+      return buildGraphTypeForScope(scope)
     case 'file':
       return 'FileGraph'
     case 'content':
       return 'ContentGraph'
     default:
       return `${capitalize(scope.kind)}Graph`
+  }
+}
+
+function buildGraphTypeForScope(scope: ContextGraphScope): string {
+  const standardKind = scope.adapterRefs.find((ref) => ref.role !== 'inventory')?.role === 'code-graph-builder'
+    ? 'repository'
+    : scope.adapterRefs.find((ref) => ref.adapterId === 'builtin.openapi')
+      ? 'api_contracts'
+      : scope.adapterRefs.every((ref) => ref.role === 'inventory')
+        ? 'inventory'
+        : 'semantic_corpus'
+  switch (standardKind) {
+    case 'repository':
+      return 'RepositoryGraph'
+    case 'api_contracts':
+      return 'ApiContractGraph'
+    case 'inventory':
+      return 'InventoryGraph'
+    default:
+      return 'SemanticCorpusGraph'
   }
 }
 
@@ -314,6 +336,10 @@ function packageNodePriority(node: ContextNode): number {
   switch (node.properties.packageKind) {
     case 'code_repository':
       return 100
+    case 'api_contracts':
+      return 98
+    case 'test_materials':
+      return 97
     case 'product_docs':
       return 95
     case 'analysis':
@@ -554,6 +580,14 @@ function styleForNode(node: ContextNode): GraphViewerElement['styleHints'] {
       return { color: '#0f766e', shape: 'round-rectangle', size: 54 }
     case 'SourceGroup':
       return { color: '#0891b2', shape: 'round-rectangle', size: 48 }
+    case 'RepositoryGraph':
+      return { color: '#0f766e', shape: 'hexagon', size: 48 }
+    case 'SemanticCorpusGraph':
+      return { color: '#7c3aed', shape: 'hexagon', size: 48 }
+    case 'ApiContractGraph':
+      return { color: '#ea580c', shape: 'hexagon', size: 48 }
+    case 'InventoryGraph':
+      return { color: '#64748b', shape: 'hexagon', size: 44 }
     case 'Requirement':
       return { color: '#7c3aed', shape: 'ellipse', size: 42 }
     case 'Document':
@@ -593,6 +627,14 @@ function styleForGraphType(type: string): GraphViewerElement['styleHints'] {
       return { color: '#0f766e', shape: 'round-rectangle', size: 60 }
     case 'SourceGroupGraph':
       return { color: '#0e7490', shape: 'round-rectangle', size: 58 }
+    case 'RepositoryGraph':
+      return { color: '#0f766e', shape: 'hexagon', size: 54 }
+    case 'SemanticCorpusGraph':
+      return { color: '#7c3aed', shape: 'hexagon', size: 54 }
+    case 'ApiContractGraph':
+      return { color: '#ea580c', shape: 'hexagon', size: 54 }
+    case 'InventoryGraph':
+      return { color: '#64748b', shape: 'hexagon', size: 50 }
     case 'FileGraph':
     case 'FileGraphLayer':
       return { color: '#64748b', shape: 'rectangle', size: 46 }

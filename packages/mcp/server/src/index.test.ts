@@ -11,13 +11,12 @@ describe('context MCP graph scopes', () => {
     const outputDir = join(rootDir, '.context')
     const packageScopeId = 'scope:package:docs'
     const groupScopeId = 'scope:source-group:docs'
-    await mkdir(join(outputDir, 'graph', 'global'), { recursive: true })
+    await mkdir(join(outputDir, 'graph'), { recursive: true })
     await mkdir(join(outputDir, 'graph', 'scopes', 'scope-package-docs'), { recursive: true })
     await mkdir(join(outputDir, 'graph', 'scopes', 'scope-source-group-docs'), { recursive: true })
     await mkdir(join(outputDir, 'runtime'), { recursive: true })
     await mkdir(join(outputDir, 'mcp'), { recursive: true })
-    await mkdir(join(outputDir, 'diagnostics'), { recursive: true })
-    await mkdir(join(outputDir, 'sources'), { recursive: true })
+    await mkdir(join(outputDir, 'model'), { recursive: true })
     await writeFile(join(rootDir, 'context.config.json'), `${JSON.stringify({ sources: [{ name: 'workspace', path: './sources' }] }, null, 2)}\n`)
 
     const packageNode = {
@@ -164,9 +163,9 @@ describe('context MCP graph scopes', () => {
       sourceRef: { sourceId: 'workspace', uri: 'file://sources/docs/checkout.md', location: { path: 'sources/docs/checkout.md' } }
     }
 
-    await writeJsonl(join(outputDir, 'graph', 'global', 'nodes.jsonl'), [packageNode, groupNode, requirement])
-    await writeJsonl(join(outputDir, 'graph', 'global', 'edges.jsonl'), [packageEdge])
-    await writeJsonl(join(outputDir, 'graph', 'global', 'diagnostics.jsonl'), [])
+    await writeJsonl(join(outputDir, 'graph', 'nodes.jsonl'), [packageNode, groupNode, requirement])
+    await writeJsonl(join(outputDir, 'graph', 'edges.jsonl'), [packageEdge])
+    await writeJsonl(join(outputDir, 'graph', 'diagnostics.jsonl'), [])
     await writeJsonl(join(outputDir, 'graph', 'scopes', 'scope-package-docs', 'nodes.jsonl'), [packageNode, groupNode])
     await writeJsonl(join(outputDir, 'graph', 'scopes', 'scope-package-docs', 'edges.jsonl'), [packageEdge])
     await writeFile(join(outputDir, 'graph', 'scopes', 'scope-package-docs', 'summary.json'), `${JSON.stringify({ scope: scopeManifest.scopes[0] }, null, 2)}\n`)
@@ -174,11 +173,11 @@ describe('context MCP graph scopes', () => {
     await writeJsonl(join(outputDir, 'graph', 'scopes', 'scope-source-group-docs', 'edges.jsonl'), [])
     await writeFile(join(outputDir, 'graph', 'scopes', 'scope-source-group-docs', 'summary.json'), `${JSON.stringify({ scope: scopeManifest.scopes[1] }, null, 2)}\n`)
     await writeFile(join(outputDir, 'graph', 'scopes', 'manifest.json'), `${JSON.stringify(scopeManifest, null, 2)}\n`)
-    await writeJsonl(join(outputDir, 'sources', 'inventory.jsonl'), [inventoryEntry])
-    await writeJsonl(join(outputDir, 'sources', 'groups.jsonl'), [groupRecord])
-    await writeJsonl(join(outputDir, 'sources', 'packages.jsonl'), [packageRecord])
-    await writeJsonl(join(outputDir, 'sources', 'build-units.jsonl'), [buildUnit])
-    await writeFile(join(outputDir, 'sources', 'summary.json'), `${JSON.stringify({ roots: 1, files: 1, packages: 1, groups: 1, routed: 1, inventoryOnly: 0, unsupported: 0, skipped: 0 }, null, 2)}\n`)
+    await writeJsonl(join(outputDir, 'model', 'source-inventory.jsonl'), [inventoryEntry])
+    await writeJsonl(join(outputDir, 'model', 'groups.jsonl'), [groupRecord])
+    await writeJsonl(join(outputDir, 'model', 'packages.jsonl'), [packageRecord])
+    await writeJsonl(join(outputDir, 'model', 'build-units.jsonl'), [buildUnit])
+    await writeFile(join(outputDir, 'model', 'source-summary.json'), `${JSON.stringify({ roots: 1, files: 1, packages: 1, groups: 1, routed: 1, inventoryOnly: 0, unsupported: 0, skipped: 0 }, null, 2)}\n`)
     await writeFile(join(outputDir, 'runtime', 'runtime.config.json'), `${JSON.stringify({ tools: [] }, null, 2)}\n`)
     await writeFile(
       join(outputDir, 'mcp', 'tools.json'),
@@ -199,7 +198,7 @@ describe('context MCP graph scopes', () => {
       )}\n`
     )
     await writeFile(join(outputDir, 'runtime', 'run-summary.json'), `${JSON.stringify({ freshness: { status: 'fresh' } }, null, 2)}\n`)
-    await writeFile(join(outputDir, 'diagnostics', 'context-health.json'), `${JSON.stringify({ status: 'healthy' }, null, 2)}\n`)
+    await writeFile(join(outputDir, 'health.json'), `${JSON.stringify({ status: 'healthy' }, null, 2)}\n`)
 
     const scopes = await callContextMcpTool(rootDir, 'list_graph_scopes')
     expect(scopes).toMatchObject({ data: { scopes: expect.arrayContaining([expect.objectContaining({ id: groupScopeId, kind: 'source_group' })]) } })

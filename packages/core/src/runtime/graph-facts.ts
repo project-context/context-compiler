@@ -11,13 +11,15 @@ import type {
   GraphFactHistory,
   GraphPatch,
   GraphRevision,
-  PatchOperation,
+  PatchOperation
+} from '../contracts/graph.js'
+import type {
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { loadGraphFiles } from '../graph/index.js'
 import { fingerprintValue, slug } from '../graph/model.js'
-import { createGraphRevision } from '../kernel/index.js'
+import { createGraphRevision } from '../graph/revisions.js'
 
 export interface ExplainGraphFactOptions {
   outputDir: string
@@ -348,21 +350,21 @@ export async function revertGraphPatch(options: RevertGraphPatchOptions): Promis
   }
 
   if (!options.dryRun) {
-    const inboxPath = join(options.outputDir, 'graph', 'patches', 'submitted.jsonl')
+    const inboxPath = join(options.outputDir, 'graph', 'submitted-patches.jsonl')
     await mkdir(dirname(inboxPath), { recursive: true })
     await appendFile(inboxPath, `${JSON.stringify(reversePatch)}\n`, 'utf8')
-    return { dryRun: false, patchId: options.patchId, reversePatch, submitted: true, path: '.context/graph/patches/submitted.jsonl', diagnostics }
+    return { dryRun: false, patchId: options.patchId, reversePatch, submitted: true, path: '.context/graph/submitted-patches.jsonl', diagnostics }
   }
 
   return { dryRun: true, patchId: options.patchId, reversePatch, submitted: false, diagnostics }
 }
 
 async function readGraphPatchLedger(outputDir: string): Promise<GraphPatch[]> {
-  return readOptionalJsonl<GraphPatch>(join(outputDir, 'graph', 'patches', 'patches.jsonl'))
+  return readOptionalJsonl<GraphPatch>(join(outputDir, 'graph', 'patches.jsonl'))
 }
 
 async function readGraphRevisions(outputDir: string): Promise<GraphRevision[]> {
-  return readOptionalJsonl<GraphRevision>(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'))
+  return readOptionalJsonl<GraphRevision>(join(outputDir, 'graph', 'revisions.jsonl'))
 }
 
 async function readEvidenceReports(outputDir: string): Promise<EvidenceReport[]> {
@@ -378,6 +380,17 @@ async function readOptionalJsonl<T>(path: string): Promise<T[]> {
     return content.trim().split('\n').map((line) => JSON.parse(line) as T)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      const legacyPath = path
+        .replace('/graph/patches.jsonl', '/graph/patches/patches.jsonl')
+        .replace('/graph/revisions.jsonl', '/graph/revisions/revisions.jsonl')
+      if (legacyPath !== path) {
+        try {
+          const content = await readFile(legacyPath, 'utf8')
+          return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
+        } catch {
+          return []
+        }
+      }
       return []
     }
     throw error

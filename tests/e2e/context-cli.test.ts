@@ -3,6 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { runCli } from '@context-compiler/cli'
+import { installMockGraphRagRuntimeHooks } from './mock-graphrag.js'
+
+installMockGraphRagRuntimeHooks()
 
 async function writeProject(rootDir: string) {
   await mkdir(join(rootDir, 'docs', 'product'), { recursive: true })
@@ -123,13 +126,16 @@ describe('context CLI', () => {
     expect(explain.stdout).toContain('feishu://doc/refund')
     expect(explain.stdout).toContain('exposed_as')
 
+    await mkdir(join(rootDir, '.context', 'tasks'), { recursive: true })
+    await writeFile(join(rootDir, '.context', 'tasks', 'stale.md'), 'stale task output\n')
     const task = await runCli(['task', '支持订单部分退款', '--focus', 'implementation', '--module', 'refund'], {
       cwd: rootDir
     })
     expect(task.stdout).toContain('Focus: implementation')
     expect(task.stdout).toContain('TC-REFUND-001')
     await expect(
-      readFile(join(rootDir, '.context', 'tasks', 'support-partial-refund.implementation.md'), 'utf8')
+      readFile(join(rootDir, '.context', 'debug', 'tasks', 'support-partial-refund.implementation.md'), 'utf8')
     ).resolves.toContain('Task Context: 支持订单部分退款')
+    await expect(access(join(rootDir, '.context', 'tasks'))).rejects.toThrow()
   })
 })

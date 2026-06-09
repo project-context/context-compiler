@@ -1,21 +1,25 @@
 import type {
-  ContextDistribution,
   ContextEdge,
   ContextGraphScope,
   ContextGraphAdapterRef,
-  ContextGraphIndexHint,
   ContextNode,
-  ContextSourceInventory,
+  Diagnostic
+} from '../contracts/graph.js'
+import type {
+  ContextSourceInventory
+} from '../contracts/sources.js'
+import type {
   DocumentExtractorAdapter,
-  Diagnostic,
   GraphAdapterArtifact,
   GraphAdapter,
+  ContextGraphIndexHint,
   GraphAdapterManifest,
   GraphBuildInput,
   GraphBuildResult,
   SourceParserAdapter,
   AdapterRuntimeRequirement
-} from '../contracts/index.js'
+} from '../contracts/adapters.js'
+import type { ContextDistribution } from '../contracts/pipeline.js'
 import { createContextEdge, createContextNode, normalizeContextNodeType } from './model.js'
 
 export interface NormalizeGraphBuildResultOptions {

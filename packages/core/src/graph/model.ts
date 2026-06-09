@@ -8,9 +8,11 @@ import type {
   ContextNodeStatus,
   ContextNodeType,
   Evidence,
-  EvidenceType,
+  EvidenceType
+} from '../contracts/graph.js'
+import type {
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
 
 type SourceLike = SourceRef & { name?: string; type?: string }
 
@@ -82,6 +84,10 @@ const TYPE_ALIASES: Record<string, ContextNodeType> = {
   interaction: 'Interaction',
   route: 'Route',
   repository: 'Repository',
+  repository_graph: 'RepositoryGraph',
+  semantic_corpus_graph: 'SemanticCorpusGraph',
+  api_contract_graph: 'ApiContractGraph',
+  inventory_graph: 'InventoryGraph',
   module: 'Module',
   package: 'Package',
   class: 'Class',
@@ -172,6 +178,10 @@ const CANONICAL_TYPES = new Set<ContextNodeType>([
   'Interaction',
   'Route',
   'Repository',
+  'RepositoryGraph',
+  'SemanticCorpusGraph',
+  'ApiContractGraph',
+  'InventoryGraph',
   'Module',
   'Package',
   'Class',

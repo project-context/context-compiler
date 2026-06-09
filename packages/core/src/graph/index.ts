@@ -1,12 +1,36 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import type { ContextEdge, ContextGraph, ContextGraphScopeManifest, ContextNode, ContextSourceInventory, Diagnostic, Evidence, GraphFactProvenance, SourceRef } from '../contracts/index.js'
+import type { SourceRef } from '../contracts/config.js'
+import type { ContextEdge, ContextGraph, ContextGraphScopeManifest, ContextNode, Diagnostic, Evidence, GraphFactProvenance } from '../contracts/graph.js'
+import type { ContextSourceInventory } from '../contracts/sources.js'
 import { fingerprintValue, nodeContent, slug, sourceUri } from './model.js'
 import { buildGraphScopes, scopeDirName } from './scopes.js'
 
-export * from '../contracts/index.js'
+export type * from '../contracts/graph.js'
+export type {
+  ContextPackageBuildUnit,
+  ContextPackageRecord,
+  ContextSourceFirstPlans,
+  ContextSourceGroupRecord,
+  ContextSourceInventory,
+  ContextSourceInventoryEntry
+} from '../contracts/sources.js'
+export type { ContextRuntimeFreshness } from '../contracts/runtime.js'
+export type {
+  AdapterRuntimeRequirement,
+  DocumentExtractorAdapter,
+  GraphAdapter,
+  GraphAdapterArtifact,
+  GraphAdapterManifest,
+  GraphBuildInput,
+  GraphBuildResult,
+  SourceParserAdapter
+} from '../contracts/adapters.js'
+export type { ContextDistribution } from '../contracts/pipeline.js'
+export type { SourceRef } from '../contracts/config.js'
 export * from './model.js'
 export * from './scopes.js'
+export * from './revisions.js'
 export * from './adapters.js'
 
 /** Resolve `.context` or another configured output directory from a project root. */
@@ -39,9 +63,9 @@ export function ensureGraphFactProvenance(graph: ContextGraph, options: { revisi
 /** Persist flat and partitioned graph files as JSON Lines. */
 export async function writeGraphFiles(graph: ContextGraph, outputDir: string, options: WriteGraphFilesOptions = {}): Promise<void> {
   const materializedGraph = ensureGraphFactProvenance(graph)
-  const submittedPatches = await readOptionalText(join(outputDir, 'graph', 'patches', 'submitted.jsonl'))
+  const submittedPatches = await readOptionalText(join(outputDir, 'graph', 'submitted-patches.jsonl'))
   await rm(join(outputDir, 'graph'), { recursive: true, force: true })
-  const graphDir = join(outputDir, 'graph', 'global')
+  const graphDir = join(outputDir, 'graph')
   await mkdir(graphDir, { recursive: true })
   await Promise.all([
     writeJsonl(join(graphDir, 'nodes.jsonl'), materializedGraph.nodes),
@@ -50,19 +74,18 @@ export async function writeGraphFiles(graph: ContextGraph, outputDir: string, op
   ])
   await Promise.all([writeSubgraphs(materializedGraph, outputDir), writePartitions(materializedGraph, outputDir), writeScopeGraphs(materializedGraph, outputDir, options.sourceInventory)])
   if (submittedPatches !== undefined) {
-    await mkdir(join(outputDir, 'graph', 'patches'), { recursive: true })
-    await writeFile(join(outputDir, 'graph', 'patches', 'submitted.jsonl'), submittedPatches)
+    await writeFile(join(outputDir, 'graph', 'submitted-patches.jsonl'), submittedPatches)
   }
 }
 
 /** Read graph files from `.context/graph`. */
 export async function loadGraphFiles(outputDir: string): Promise<ContextGraph> {
   const graphDir = join(outputDir, 'graph')
-  const globalGraphDir = join(graphDir, 'global')
+  const legacyGlobalGraphDir = join(graphDir, 'global')
   const [nodes, edges, diagnostics] = await Promise.all([
-    readJsonlWithFallback<ContextNode>(join(globalGraphDir, 'nodes.jsonl'), join(graphDir, 'nodes.jsonl')),
-    readJsonlWithFallback<ContextEdge>(join(globalGraphDir, 'edges.jsonl'), join(graphDir, 'edges.jsonl')),
-    readJsonlWithFallback<Diagnostic>(join(globalGraphDir, 'diagnostics.jsonl'), join(graphDir, 'diagnostics.jsonl'))
+    readJsonlWithFallback<ContextNode>(join(graphDir, 'nodes.jsonl'), join(legacyGlobalGraphDir, 'nodes.jsonl')),
+    readJsonlWithFallback<ContextEdge>(join(graphDir, 'edges.jsonl'), join(legacyGlobalGraphDir, 'edges.jsonl')),
+    readJsonlWithFallback<Diagnostic>(join(graphDir, 'diagnostics.jsonl'), join(legacyGlobalGraphDir, 'diagnostics.jsonl'))
   ])
   return ensureGraphFactProvenance({ nodes, edges, diagnostics })
 }
@@ -122,19 +145,19 @@ async function readJsonl<T>(path: string): Promise<T[]> {
   return content.trim().split('\n').map((line) => JSON.parse(line) as T)
 }
 
-async function readJsonlWithFallback<T>(primary: string, fallback: string): Promise<T[]> {
-  try {
-    return await readJsonl<T>(primary)
-  } catch {
-    return readJsonl<T>(fallback)
-  }
-}
-
 async function readOptionalText(path: string): Promise<string | undefined> {
   try {
     return await readFile(path, 'utf8')
   } catch {
     return undefined
+  }
+}
+
+async function readJsonlWithFallback<T>(primary: string, fallback: string): Promise<T[]> {
+  try {
+    return await readJsonl<T>(primary)
+  } catch {
+    return readJsonl<T>(fallback)
   }
 }
 

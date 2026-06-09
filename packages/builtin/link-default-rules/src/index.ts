@@ -1,4 +1,5 @@
-import { createContextEdge, defineComponent, evidenceFromSource, nodeStringArrayProperty, nodeStringProperty, type ContextComponent, type ContextEdge, type ContextNode, type EvidenceType, type SourceRef } from '@context-compiler/core/sdk'
+import { type SourceRef } from '@context-compiler/core/config'
+import { createContextEdge, defineComponent, evidenceFromSource, nodeStringArrayProperty, nodeStringProperty, type ContextComponent, type ContextEdge, type ContextNode, type EvidenceType } from '@context-compiler/core/sdk'
 
 /** Create deterministic local graph linking rules. */
 export function createDefaultRulesLinkComponent(): ContextComponent {

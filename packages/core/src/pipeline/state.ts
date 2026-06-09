@@ -1,4 +1,5 @@
-import type { ContextEdge, ContextGraph, ContextNode, PipelineState } from '../contracts/index.js'
+import type { ContextEdge, ContextGraph, ContextNode } from '../contracts/graph.js'
+import type { PipelineState } from '../contracts/pipeline.js'
 
 /** Create an empty state object for a fresh pipeline run. */
 export function emptyPipelineState(): PipelineState {

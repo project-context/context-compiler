@@ -12,15 +12,11 @@ import type {
   ContextCorrectionOperationPlan,
   ContextCorrectionPreview,
   ContextCorrectionRevisionSummary,
+} from '../contracts/corrections.js'
+import type {
   ContextGraph,
   ContextGraphScope,
   ContextGraphScopeManifest,
-  ContextPackageCorrectionInbox,
-  ContextPackageRecord,
-  ContextProjectConfig,
-  ContextSourceCorrectionDecision,
-  ContextSourceGroupRecord,
-  ContextSourceInventoryEntry,
   Diagnostic,
   Evidence,
   EvidenceFinding,
@@ -29,14 +25,27 @@ import type {
   GraphPatchAuthor,
   GraphRevision,
   PatchOperation,
-  RehomeProposal,
+  RehomeProposal
+} from '../contracts/graph.js'
+import type {
+  ContextPackageCorrectionInbox,
+  ContextSourceCorrectionDecision
+} from '../contracts/corrections.js'
+import type {
+  ContextPackageRecord,
+  ContextSourceGroupRecord,
+  ContextSourceInventoryEntry
+} from '../contracts/sources.js'
+import type {
+  ContextProjectConfig,
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { loadGraphFiles } from '../graph/index.js'
 import { fingerprintValue } from '../graph/model.js'
 import { scopeIdForPackage, scopeIdForSourceGroup } from '../graph/scopes.js'
-import { createGraphRevision, reconcileEvidenceReports } from '../kernel/index.js'
+import { reconcileEvidenceReports } from '../kernel/index.js'
+import { createGraphRevision } from '../graph/revisions.js'
 import { applySubmittedGraphPatches } from './patch-cycle.js'
 
 export interface ListContextPackageCorrectionsOptions {
@@ -288,7 +297,7 @@ export async function applyContextCorrectionProposal(options: ApplyContextCorrec
     preview,
     operationPlan: preview.operationPlan,
     revisionSummary,
-    path: '.context/proposals/corrections.jsonl',
+    path: '.context/state/corrections.jsonl',
     diagnostics
   }
 }
@@ -568,22 +577,22 @@ async function updateContextCorrectionProposalStatus(
     derivedFrom: uniqueSources([...proposal.derivedFrom, { kind: 'status_overlay', id: proposal.id }])
   }
   await appendCorrectionOverlay(options.outputDir, updated)
-  return { schemaVersion: 'context-correction-action-result.v1', action, dryRun: false, submitted: false, written: true, proposal: updated, graphPatch: updated.graphPatch, path: '.context/proposals/corrections.jsonl', diagnostics: [] }
+  return { schemaVersion: 'context-correction-action-result.v1', action, dryRun: false, submitted: false, written: true, proposal: updated, graphPatch: updated.graphPatch, path: '.context/state/corrections.jsonl', diagnostics: [] }
 }
 
 async function readCorrectionRuntime(outputDir: string): Promise<CorrectionRuntimeFiles> {
   const [graph, manifest, packages, groups, entries, evidenceReports, storedRehome, overlayProposals, ledgerPatches, submittedPatches, revisions] = await Promise.all([
     loadGraphFiles(outputDir),
     readScopeManifest(outputDir),
-    readJsonlOptional<ContextPackageRecord>(join(outputDir, 'sources', 'packages.jsonl')),
-    readJsonlOptional<ContextSourceGroupRecord>(join(outputDir, 'sources', 'groups.jsonl')),
-    readJsonlOptional<ContextSourceInventoryEntry>(join(outputDir, 'sources', 'inventory.jsonl')),
+    readJsonlOptional<ContextPackageRecord>(join(outputDir, 'model', 'packages.jsonl')),
+    readJsonlOptional<ContextSourceGroupRecord>(join(outputDir, 'model', 'groups.jsonl')),
+    readJsonlOptional<ContextSourceInventoryEntry>(join(outputDir, 'model', 'source-inventory.jsonl')),
     readJsonlOptional<EvidenceReport>(join(outputDir, 'graph', 'evidence-reports.jsonl')),
-    readJsonlOptional<RehomeProposal>(join(outputDir, 'proposals', 'rehome-proposals.jsonl')),
-    readJsonlOptional<ContextCorrectionProposal>(join(outputDir, 'proposals', 'corrections.jsonl')),
-    readJsonlOptional<GraphPatch>(join(outputDir, 'graph', 'patches', 'patches.jsonl')),
-    readJsonlOptional<GraphPatch>(join(outputDir, 'graph', 'patches', 'submitted.jsonl')),
-    readJsonlOptional<GraphRevision>(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'))
+    readJsonlOptional<RehomeProposal>(join(outputDir, 'state', 'rehome-proposals.jsonl')),
+    readJsonlOptional<ContextCorrectionProposal>(join(outputDir, 'state', 'corrections.jsonl')),
+    readJsonlOptional<GraphPatch>(join(outputDir, 'graph', 'patches.jsonl')),
+    readJsonlOptional<GraphPatch>(join(outputDir, 'graph', 'submitted-patches.jsonl')),
+    readJsonlOptional<GraphRevision>(join(outputDir, 'graph', 'revisions.jsonl'))
   ])
   const baseRevision = revisions.at(-1) ?? createGraphRevision(graph, { reason: 'materialized compile graph', status: 'materialized' })
   const reconciled = reconcileEvidenceReports(graph, baseRevision, evidenceReports)
@@ -1368,7 +1377,7 @@ function sourceCorrectionDecisionId(
 }
 
 async function appendGraphPatch(outputDir: string, patch: GraphPatch): Promise<void> {
-  const path = join(outputDir, 'graph', 'patches', 'submitted.jsonl')
+  const path = join(outputDir, 'graph', 'submitted-patches.jsonl')
   await mkdir(dirname(path), { recursive: true })
   await appendFile(path, `${JSON.stringify(patch)}\n`, 'utf8')
 }
@@ -1377,13 +1386,13 @@ async function appendSourceCorrectionDecisions(outputDir: string, decisions: Con
   if (decisions.length === 0) {
     return
   }
-  const path = join(outputDir, 'sources', 'correction-decisions.jsonl')
+  const path = join(outputDir, 'state', 'source-correction-decisions.jsonl')
   await mkdir(dirname(path), { recursive: true })
   await appendFile(path, decisions.map((decision) => JSON.stringify(decision)).join('\n') + '\n', 'utf8')
 }
 
 async function appendCorrectionOverlay(outputDir: string, proposal: ContextCorrectionProposal): Promise<void> {
-  const path = join(outputDir, 'proposals', 'corrections.jsonl')
+  const path = join(outputDir, 'state', 'corrections.jsonl')
   await mkdir(dirname(path), { recursive: true })
   await appendFile(path, `${JSON.stringify(proposal)}\n`, 'utf8')
 }
@@ -1639,6 +1648,10 @@ function packageKindForGroup(kind: ContextSourceGroupRecord['kind']): ContextPac
   switch (kind) {
     case 'repository':
       return 'code_repository'
+    case 'test_bundle':
+      return 'test_materials'
+    case 'api_bundle':
+      return 'api_contracts'
     case 'doc_bundle':
     case 'domain_area':
       return 'product_docs'
@@ -1647,7 +1660,6 @@ function packageKindForGroup(kind: ContextSourceGroupRecord['kind']): ContextPac
     case 'design_bundle':
       return 'design'
     case 'data_bundle':
-    case 'api_bundle':
       return 'data'
     case 'runtime_bundle':
     case 'config_bundle':
@@ -1723,7 +1735,7 @@ function stableId(value: string): string {
 }
 
 function packageKind(value: string | undefined): ContextPackageRecord['kind'] {
-  const allowed = new Set<ContextPackageRecord['kind']>(['product_docs', 'code_repository', 'analysis', 'design', 'data', 'runtime', 'asset', 'unknown'])
+  const allowed = new Set<ContextPackageRecord['kind']>(['product_docs', 'code_repository', 'api_contracts', 'test_materials', 'analysis', 'design', 'data', 'runtime', 'asset', 'unknown'])
   return allowed.has(value as ContextPackageRecord['kind']) ? value as ContextPackageRecord['kind'] : 'unknown'
 }
 
@@ -1810,6 +1822,27 @@ async function readJsonlOptional<T>(path: string): Promise<T[]> {
     const content = await readFile(path, 'utf8')
     return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
   } catch {
+    const legacyPath = legacyRuntimePath(path)
+    if (legacyPath && legacyPath !== path) {
+      try {
+        const content = await readFile(legacyPath, 'utf8')
+        return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
+      } catch {
+        return []
+      }
+    }
     return []
   }
+}
+
+function legacyRuntimePath(path: string): string | undefined {
+  return path
+    .replace('/model/source-inventory.jsonl', '/sources/inventory.jsonl')
+    .replace('/model/groups.jsonl', '/sources/groups.jsonl')
+    .replace('/model/packages.jsonl', '/sources/packages.jsonl')
+    .replace('/state/rehome-proposals.jsonl', '/proposals/rehome-proposals.jsonl')
+    .replace('/state/corrections.jsonl', '/proposals/corrections.jsonl')
+    .replace('/graph/patches.jsonl', '/graph/patches/patches.jsonl')
+    .replace('/graph/submitted-patches.jsonl', '/graph/patches/submitted.jsonl')
+    .replace('/graph/revisions.jsonl', '/graph/revisions/revisions.jsonl')
 }

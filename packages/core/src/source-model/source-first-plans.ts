@@ -1,16 +1,14 @@
 import type {
   ContextAdapterPlan,
-  ContextGraph,
-  ContextGraphAdapterRef,
-  ContextProjectConfig,
   ContextScopeBuildPlan,
   ContextSourceFirstPlans,
   ContextSourceGroupPlan,
   ContextSourceInventory,
-  ContextSourceInventoryEntry,
   ContextSourceTriageResult,
   ContextWorkspaceGraphPlan
-} from '../contracts/index.js'
+} from '../contracts/sources.js'
+import type { ContextProjectConfig } from '../contracts/config.js'
+import type { ContextGraph, ContextGraphAdapterRef } from '../contracts/graph.js'
 import { buildGraphScopes } from '../graph/scopes.js'
 import { fingerprintValue } from '../graph/model.js'
 
@@ -21,7 +19,6 @@ export interface BuildSourceFirstPlansOptions {
   generatedAt?: string
 }
 
-/** Build the source-first control-plane plans that drive Graph-of-Graphs execution. */
 export function buildSourceFirstPlans(options: BuildSourceFirstPlansOptions): ContextSourceFirstPlans {
   const generatedAt = options.generatedAt ?? new Date().toISOString()
   const scoped = buildGraphScopes(options.graph, options.sourceInventory)
@@ -147,14 +144,14 @@ function buildTriagePlan(sourceInventory: ContextSourceInventory, generatedAt: s
   }
 }
 
-function triageAction(entry: ContextSourceInventoryEntry): ContextSourceTriageResult['entries'][number]['action'] {
+function triageAction(entry: ContextSourceInventory['entries'][number]): ContextSourceTriageResult['entries'][number]['action'] {
   if (needsAdapter(entry)) return 'needs-adapter'
   if (entry.status === 'skipped') return 'skip'
   if (entry.status === 'inventory_only') return 'inventory'
   return 'route'
 }
 
-function needsAdapter(entry: ContextSourceInventoryEntry): boolean {
+function needsAdapter(entry: ContextSourceInventory['entries'][number]): boolean {
   return entry.status === 'unsupported' && (entry.unsupportedReason === 'adapter-not-configured' || entry.unsupportedReason === undefined)
 }
 

@@ -1,4 +1,5 @@
-import type { Diagnostic, DiagnosticSeverity, SourceRef } from '../contracts/index.js'
+import type { SourceRef } from '../contracts/config.js'
+import type { Diagnostic, DiagnosticSeverity } from '../contracts/graph.js'
 
 /** Input for constructing a normalized diagnostic record. */
 export interface CreateDiagnosticInput {

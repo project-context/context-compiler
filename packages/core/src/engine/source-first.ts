@@ -1,7 +1,7 @@
 import { defineContextProject } from '../config/index.js'
 import { resolveOutputDir } from '../graph/index.js'
 import { ComponentRegistry, PipelinePlanner, PipelineRunner, emptyPipelineState } from '../pipeline/index.js'
-import type { CompileProjectOptions, CompileProjectResult, PipelineDefinition } from '../contracts/index.js'
+import type { CompileProjectOptions, CompileProjectResult, PipelineDefinition } from '../contracts/pipeline.js'
 
 export const SOURCE_FIRST_ENGINE_PHASES = [
   'inventory',

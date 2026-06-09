@@ -5,12 +5,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@context-compiler/core/sdk': resolve(__dirname, 'packages/core/src/sdk/index.ts'),
+      '@context-compiler/core/config': resolve(__dirname, 'packages/core/src/config/index.ts'),
+      '@context-compiler/core/extensions': resolve(__dirname, 'packages/core/src/extensions/index.ts'),
       '@context-compiler/core/kernel': resolve(__dirname, 'packages/core/src/kernel/index.ts'),
       '@context-compiler/core/graph': resolve(__dirname, 'packages/core/src/graph/index.ts'),
       '@context-compiler/core/source-model': resolve(__dirname, 'packages/core/src/source-model/index.ts'),
       '@context-compiler/core/runtime': resolve(__dirname, 'packages/core/src/runtime/index.ts'),
       '@context-compiler/core/compiler': resolve(__dirname, 'packages/core/src/compiler/index.ts'),
-      '@context-compiler/core': resolve(__dirname, 'packages/core/src/index.ts'),
       '@context-compiler/cli': resolve(__dirname, 'packages/cli/src/index.ts'),
       '@context-compiler/builtin-local': resolve(__dirname, 'packages/builtin/local/src/index.ts'),
       '@context-compiler/mcp-server': resolve(__dirname, 'packages/mcp/server/src/index.ts'),
@@ -37,6 +38,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: ['packages/**/*.test.ts', 'tests/**/*.test.ts']
+    include: ['packages/**/*.test.ts', 'tests/**/*.test.ts'],
+    testTimeout: 120000
   }
 })

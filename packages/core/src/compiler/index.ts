@@ -1,7 +1,7 @@
 import { SourceFirstCompileEngine } from '../engine/index.js'
-import type { CompileProjectOptions, CompileProjectResult } from '../contracts/index.js'
+import type { CompileProjectOptions, CompileProjectResult } from '../contracts/pipeline.js'
 
-export * from '../contracts/index.js'
+export type { CompileProjectOptions, CompileProjectResult } from '../contracts/pipeline.js'
 export * from '../engine/index.js'
 
 /** Compile a workspace through the source-first Graph-of-Graphs engine. */

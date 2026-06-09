@@ -1,4 +1,4 @@
-import type { ContextComponent, PipelineStage } from '../contracts/index.js'
+import type { ContextComponent, PipelineStage } from '../contracts/pipeline.js'
 
 /** Registry of available components keyed by stable component id. */
 export class ComponentRegistry {

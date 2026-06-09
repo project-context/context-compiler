@@ -5,7 +5,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { approveContextCorrectionProposal, applyContextCorrectionProposal, getContextCorrectionProposal, listContextPackageCorrections, previewContextCorrectionProposal, rejectContextCorrectionProposal } from '@context-compiler/core/runtime'
 import { scopeIdForPackage, writeGraphFiles } from '@context-compiler/core/graph'
-import { createContextEdge, createContextNode, type ContextGraph, type ContextPackageRecord, type ContextSourceGroupRecord, type ContextSourceInventory, type EvidenceReport, type GraphPatch, type GraphRevision } from '@context-compiler/core/sdk'
+import { type EvidenceReport, type GraphPatch, type GraphRevision } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextPackageRecord, type ContextSourceGroupRecord, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const docRef = { sourceId: 'workspace', uri: 'file://sources/product-docs/product.md', location: { path: 'sources/product-docs/product.md' } }
 const codeRef = { sourceId: 'workspace', uri: 'file://sources/repo/src/upload.ts', location: { path: 'sources/repo/src/upload.ts' } }
@@ -155,7 +156,7 @@ describe('package correction proposal runtime', () => {
     const approvedInbox = await listContextPackageCorrections({ outputDir, packageRef: 'PACKAGE-docs', status: 'approved' })
     expect(approvedInbox.proposals).toEqual([expect.objectContaining({ id: relabel.id, status: 'approved' })])
 
-    const sourceDecisionsBefore = await readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8').catch(() => '')
+    const sourceDecisionsBefore = await readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8').catch(() => '')
     const preview = await previewContextCorrectionProposal({ outputDir, proposalId: relabel.id })
     expect(preview).toMatchObject({
       schemaVersion: 'context-correction-preview.v1',
@@ -180,7 +181,7 @@ describe('package correction proposal runtime', () => {
         sourceDecisionIds: expect.arrayContaining([expect.stringContaining(relabel.id)])
       })
     })
-    await expect(readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8').catch(() => '')).resolves.toBe(sourceDecisionsBefore)
+    await expect(readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8').catch(() => '')).resolves.toBe(sourceDecisionsBefore)
 
     const dryRun = await applyContextCorrectionProposal({ outputDir, proposalId: relabel.id, dryRun: true })
     expect(dryRun).toMatchObject({
@@ -194,8 +195,8 @@ describe('package correction proposal runtime', () => {
       operationPlan: expect.objectContaining({ id: preview.operationPlan.id }),
       diagnostics: expect.arrayContaining([expect.objectContaining({ type: 'correction.proposal.conflict.warning' })])
     })
-    await expect(readFile(join(outputDir, 'graph', 'patches', 'patches.jsonl'), 'utf8')).resolves.not.toContain('patch:docs-relabel')
-    await expect(readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8').catch(() => '')).resolves.toBe(sourceDecisionsBefore)
+    await expect(readFile(join(outputDir, 'graph', 'patches.jsonl'), 'utf8')).resolves.not.toContain('patch:docs-relabel')
+    await expect(readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8').catch(() => '')).resolves.toBe(sourceDecisionsBefore)
 
     const applied = await applyContextCorrectionProposal({ outputDir, proposalId: relabel.id, actor: { type: 'human', name: 'tester' }, generatedAt: '2026-06-07T00:00:04.000Z' })
     expect(applied).toMatchObject({
@@ -210,7 +211,7 @@ describe('package correction proposal runtime', () => {
         sourceDecisionIds: expect.arrayContaining([expect.stringContaining(relabel.id)])
       })
     })
-    const sourceDecisions = await readFile(join(outputDir, 'sources', 'correction-decisions.jsonl'), 'utf8')
+    const sourceDecisions = await readFile(join(outputDir, 'state', 'source-correction-decisions.jsonl'), 'utf8')
     expect(sourceDecisions).toContain(relabel.id)
     expect(sourceDecisions).toContain('"kind":"relabel"')
 
@@ -291,8 +292,8 @@ describe('package correction proposal runtime', () => {
       generatedAt: '2026-06-07T00:00:03.000Z'
     })
     expect(approved.proposal.status).toBe('approved')
-    const overlayBefore = await readFile(join(outputDir, 'proposals', 'corrections.jsonl'), 'utf8')
-    const submittedBefore = await readFile(join(outputDir, 'graph', 'patches', 'submitted.jsonl'), 'utf8').catch(() => '')
+    const overlayBefore = await readFile(join(outputDir, 'state', 'corrections.jsonl'), 'utf8')
+    const submittedBefore = await readFile(join(outputDir, 'graph', 'submitted-patches.jsonl'), 'utf8').catch(() => '')
     const dryRun = await applyContextCorrectionProposal({ outputDir, proposalId: relabel.id, dryRun: true })
     expect(dryRun).toMatchObject({
       action: 'apply',
@@ -304,8 +305,8 @@ describe('package correction proposal runtime', () => {
       operationPlan: expect.objectContaining({ kind: 'relabel' }),
       diagnostics: expect.arrayContaining([expect.objectContaining({ type: 'correction.proposal.conflict.warning' })])
     })
-    await expect(readFile(join(outputDir, 'proposals', 'corrections.jsonl'), 'utf8')).resolves.toBe(overlayBefore)
-    await expect(readFile(join(outputDir, 'graph', 'patches', 'submitted.jsonl'), 'utf8').catch(() => '')).resolves.toBe(submittedBefore)
+    await expect(readFile(join(outputDir, 'state', 'corrections.jsonl'), 'utf8')).resolves.toBe(overlayBefore)
+    await expect(readFile(join(outputDir, 'graph', 'submitted-patches.jsonl'), 'utf8').catch(() => '')).resolves.toBe(submittedBefore)
   })
 })
 
@@ -373,12 +374,12 @@ function pkg(id: string, path: string, title: string, kind: ContextPackageRecord
 }
 
 async function writeSources(outputDir: string, inventory: ContextSourceInventory): Promise<void> {
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeJsonl(join(outputDir, 'sources', 'inventory.jsonl'), inventory.entries)
-  await writeJsonl(join(outputDir, 'sources', 'groups.jsonl'), inventory.groups ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'packages.jsonl'), inventory.packages ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'build-units.jsonl'), [])
-  await writeFile(join(outputDir, 'sources', 'summary.json'), `${JSON.stringify(inventory.summary, null, 2)}\n`)
+  await mkdir(join(outputDir, 'model'), { recursive: true })
+  await writeJsonl(join(outputDir, 'model', 'source-inventory.jsonl'), inventory.entries)
+  await writeJsonl(join(outputDir, 'model', 'groups.jsonl'), inventory.groups ?? [])
+  await writeJsonl(join(outputDir, 'model', 'packages.jsonl'), inventory.packages ?? [])
+  await writeJsonl(join(outputDir, 'model', 'build-units.jsonl'), [])
+  await writeFile(join(outputDir, 'model', 'source-summary.json'), `${JSON.stringify(inventory.summary, null, 2)}\n`)
 }
 
 async function writeGraphKernelFiles(
@@ -427,11 +428,10 @@ async function writeGraphKernelFiles(
     evidenceReportIds: ['evidence:docs-missing-target'],
     operations: [{ op: 'update_node', nodeId: 'MISSING-doc-node', properties: { status: 'confirmed' } }]
   }
-  await mkdir(join(outputDir, 'graph', 'revisions'), { recursive: true })
-  await mkdir(join(outputDir, 'graph', 'patches'), { recursive: true })
-  await mkdir(join(outputDir, 'proposals'), { recursive: true })
-  await writeJsonl(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'), [revision])
-  await writeJsonl(join(outputDir, 'graph', 'patches', 'patches.jsonl'), [])
+  await mkdir(join(outputDir, 'graph'), { recursive: true })
+  await mkdir(join(outputDir, 'state'), { recursive: true })
+  await writeJsonl(join(outputDir, 'graph', 'revisions.jsonl'), [revision])
+  await writeJsonl(join(outputDir, 'graph', 'patches.jsonl'), [])
   const reports: EvidenceReport[] = [{
     schemaVersion: 'context-evidence-report.v1',
     id: 'evidence:docs-correction',
@@ -506,7 +506,7 @@ async function writeGraphKernelFiles(
     })
   }
   await writeJsonl(join(outputDir, 'graph', 'evidence-reports.jsonl'), reports)
-  await writeJsonl(join(outputDir, 'proposals', 'rehome-proposals.jsonl'), [{
+  await writeJsonl(join(outputDir, 'state', 'rehome-proposals.jsonl'), [{
     schemaVersion: 'context-rehome-proposal.v1',
     id: 'rehome:docs-guide',
     sourcePath: 'sources/product-docs/guide.md',

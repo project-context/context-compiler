@@ -2,7 +2,9 @@ import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { defineContextProject, emptyPipelineState, type ContextSourceInventory } from '@context-compiler/core/sdk'
+import { defineContextProject } from '@context-compiler/core/config'
+import { emptyPipelineState } from '@context-compiler/core/kernel'
+import { type ContextSourceInventory } from '@context-compiler/core/sdk'
 import { createLocalFilesIngestComponent } from './index.js'
 
 async function writeFixture(rootDir: string): Promise<void> {
@@ -24,9 +26,9 @@ async function writeFixture(rootDir: string): Promise<void> {
 }
 
 async function writeGroupingDecisions(rootDir: string): Promise<void> {
-  await mkdir(join(rootDir, '.context', 'sources'), { recursive: true })
+  await mkdir(join(rootDir, '.context', 'state'), { recursive: true })
   await writeFile(
-    join(rootDir, '.context', 'sources', 'grouping-decisions.json'),
+    join(rootDir, '.context', 'state', 'grouping-decisions.json'),
     `${JSON.stringify(
       {
         schemaVersion: 'context-source-grouping-decisions.v1',
@@ -49,9 +51,9 @@ async function writeGroupingDecisions(rootDir: string): Promise<void> {
 }
 
 async function writeSourceCorrectionDecisions(rootDir: string): Promise<void> {
-  await mkdir(join(rootDir, '.context', 'sources'), { recursive: true })
+  await mkdir(join(rootDir, '.context', 'state'), { recursive: true })
   await writeFile(
-    join(rootDir, '.context', 'sources', 'correction-decisions.jsonl'),
+    join(rootDir, '.context', 'state', 'source-correction-decisions.jsonl'),
     [
       {
         schemaVersion: 'context-source-correction-decision.v1',
@@ -110,7 +112,113 @@ async function writeSourceCorrectionDecisions(rootDir: string): Promise<void> {
 }
 
 describe('local file source-first ingest', () => {
-  it('falls back to an inferred unknown package when auto grouping decisions are unavailable', async () => {
+  it('materializes L0 packages and L1 groups for typed source roots', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'context-typed-source-packages-'))
+    await mkdir(join(rootDir, 'sources', 'product-docs'), { recursive: true })
+    await mkdir(join(rootDir, 'sources', 'test-cases'), { recursive: true })
+    await mkdir(join(rootDir, 'sources', 'api-spec'), { recursive: true })
+    await mkdir(join(rootDir, 'sources', 'source-code'), { recursive: true })
+    await writeFile(join(rootDir, 'sources', 'product-docs', 'refund.md'), '# 支持订单部分退款\n')
+    await writeFile(join(rootDir, 'sources', 'test-cases', 'refund-tests.md'), '# 退款测试用例\n')
+    await writeFile(join(rootDir, 'sources', 'api-spec', 'openapi.yaml'), 'openapi: 3.0.3\npaths: {}\n')
+    await writeFile(join(rootDir, 'sources', 'source-code', 'refund-service.ts'), 'export function refund() { return true }\n')
+    await mkdir(join(rootDir, '.context', 'state'), { recursive: true })
+    await writeFile(
+      join(rootDir, '.context', 'state', 'grouping-decisions.json'),
+      `${JSON.stringify(
+        {
+          schemaVersion: 'context-source-grouping-decisions.v1',
+          generatedAt: '2026-06-08T00:00:00.000Z',
+          agent: 'inferred',
+          decisions: [
+            {
+              path: 'sources',
+              kind: 'unknown',
+              boundaryMode: 'collapsed',
+              title: '未知资料包',
+              summary: 'Stale inferred fallback from an earlier compile.',
+              childrenPolicy: 'promote_routed',
+              confidence: 0.35
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`
+    )
+
+    const component = createLocalFilesIngestComponent()
+    const result = await component.process?.(emptyPipelineState(), {
+      rootDir,
+      outputDir: join(rootDir, '.context'),
+      config: defineContextProject({
+        sources: [
+          { type: 'markdown', name: 'product-docs', path: './sources/product-docs' },
+          { type: 'markdown', name: 'test-cases', path: './sources/test-cases' },
+          { type: 'openapi', name: 'api-spec', path: './sources/api-spec/openapi.yaml' },
+          { type: 'code', name: 'source', path: './sources/source-code' }
+        ]
+      }, { rootDir }),
+      pipelineId: 'compile',
+      stage: 'ingest'
+    })
+
+    const inventory = result?.artifacts?.sourceInventory as ContextSourceInventory
+    expect(inventory.summary.packages).toBe(4)
+    expect(inventory.summary.groups).toBe(4)
+    expect(inventory.packages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'PACKAGE-product-docs-sources-product-docs',
+          path: 'sources/product-docs',
+          kind: 'product_docs',
+          decisionSource: 'typed-source'
+        }),
+        expect.objectContaining({
+          id: 'PACKAGE-api-spec-sources-api-spec-openapi.yaml',
+          path: 'sources/api-spec/openapi.yaml',
+          kind: 'api_contracts',
+          decisionSource: 'typed-source',
+          buildUnits: [expect.objectContaining({ standardKind: 'api_contracts', adapterId: 'builtin.openapi' })]
+        }),
+        expect.objectContaining({
+          id: 'PACKAGE-test-cases-sources-test-cases',
+          path: 'sources/test-cases',
+          kind: 'test_materials',
+          decisionSource: 'typed-source'
+        }),
+        expect.objectContaining({
+          id: 'PACKAGE-source-sources-source-code',
+          path: 'sources/source-code',
+          kind: 'code_repository',
+          decisionSource: 'typed-source',
+          buildUnits: [expect.objectContaining({ standardKind: 'repository', adapterId: 'codegraph.graph-adapter' })]
+        })
+      ])
+    )
+    expect(inventory.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'sources/product-docs', kind: 'doc_bundle', decisionSource: 'typed-source' }),
+        expect.objectContaining({ path: 'sources/test-cases', kind: 'test_bundle', decisionSource: 'typed-source' }),
+        expect.objectContaining({ path: 'sources/api-spec/openapi.yaml', kind: 'api_bundle', decisionSource: 'typed-source' }),
+        expect.objectContaining({ path: 'sources/source-code', kind: 'repository', decisionSource: 'typed-source' })
+      ])
+    )
+    expect(result?.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'PACKAGE-product-docs-sources-product-docs', type: 'Package' }),
+        expect.objectContaining({ id: 'SOURCE-GROUP-product-docs-sources-product-docs', type: 'SourceGroup' }),
+        expect.objectContaining({ id: 'PACKAGE-test-cases-sources-test-cases', type: 'Package' }),
+        expect.objectContaining({ id: 'SOURCE-GROUP-test-cases-sources-test-cases', type: 'SourceGroup' }),
+        expect.objectContaining({ id: 'PACKAGE-api-spec-sources-api-spec-openapi.yaml', type: 'Package' }),
+        expect.objectContaining({ id: 'SOURCE-GROUP-api-spec-sources-api-spec-openapi.yaml', type: 'SourceGroup' }),
+        expect.objectContaining({ id: 'PACKAGE-source-sources-source-code', type: 'Package' }),
+        expect.objectContaining({ id: 'SOURCE-GROUP-source-sources-source-code', type: 'SourceGroup' })
+      ])
+    )
+  })
+
+  it('falls back to an inferred repository package when auto grouping decisions are unavailable', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-source-grouping-request-'))
     await writeFixture(rootDir)
 
@@ -123,7 +231,7 @@ describe('local file source-first ingest', () => {
       stage: 'ingest'
     })
 
-    const request = JSON.parse(await readFile(join(rootDir, '.context', 'sources', 'grouping-request.json'), 'utf8')) as {
+    const request = JSON.parse(await readFile(join(rootDir, '.context', 'model', 'grouping-request.json'), 'utf8')) as {
       schemaVersion: string
       sources: Array<{ sourceName: string; candidates: Array<{ path: string; fileCount: number; markers: string[] }> }>
     }
@@ -136,7 +244,7 @@ describe('local file source-first ingest', () => {
       ])
     )
 
-    const decisions = JSON.parse(await readFile(join(rootDir, '.context', 'sources', 'grouping-decisions.json'), 'utf8')) as {
+    const decisions = JSON.parse(await readFile(join(rootDir, '.context', 'state', 'grouping-decisions.json'), 'utf8')) as {
       schemaVersion: string
       agent?: string
       decisions: Array<{ path: string; kind: string; title: string }>
@@ -144,7 +252,7 @@ describe('local file source-first ingest', () => {
     expect(decisions).toMatchObject({
       schemaVersion: 'context-source-grouping-decisions.v1',
       agent: 'inferred',
-      decisions: [expect.objectContaining({ path: 'sources', kind: 'unknown', title: '未知资料包' })]
+      decisions: [expect.objectContaining({ path: 'sources', kind: 'repository', title: 'sources' })]
     })
 
     const inventory = result?.artifacts?.sourceInventory as ContextSourceInventory
@@ -153,9 +261,9 @@ describe('local file source-first ingest', () => {
       expect.arrayContaining([
         expect.objectContaining({
           path: 'sources',
-          kind: 'unknown',
-          boundaryMode: 'collapsed',
-          title: '未知资料包',
+          kind: 'repository',
+          boundaryMode: 'repository',
+          title: 'sources',
           decisionSource: 'inferred'
         })
       ])
@@ -164,19 +272,77 @@ describe('local file source-first ingest', () => {
       expect.arrayContaining([
         expect.objectContaining({
           path: 'sources',
-          kind: 'unknown',
+          kind: 'code_repository',
           buildUnits: [
             expect.objectContaining({
-              standardKind: 'inventory',
-              adapterId: 'builtin.source-inventory',
+              standardKind: 'repository',
+              adapterId: 'codegraph.graph-adapter',
               adapterSelection: expect.objectContaining({
-                adapterId: 'builtin.source-inventory',
+                adapterId: 'codegraph.graph-adapter',
                 selectionSource: 'default',
                 priority: 0
               })
             })
           ]
         })
+      ])
+    )
+  })
+
+  it('splits auto workspace roots into inferred top-level L0 packages and L1 groups', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'context-auto-source-packages-'))
+    await mkdir(join(rootDir, 'sources', 'product-docs'), { recursive: true })
+    await mkdir(join(rootDir, 'sources', 'test-cases'), { recursive: true })
+    await mkdir(join(rootDir, 'sources', 'api-spec'), { recursive: true })
+    await mkdir(join(rootDir, 'sources', 'source-code'), { recursive: true })
+    await writeFile(join(rootDir, 'sources', 'product-docs', 'refund.md'), '# 支持订单部分退款\n')
+    await writeFile(join(rootDir, 'sources', 'test-cases', 'refund-tests.md'), '# 退款测试用例\n')
+    await writeFile(join(rootDir, 'sources', 'api-spec', 'openapi.yaml'), 'openapi: 3.0.3\npaths: {}\n')
+    await writeFile(join(rootDir, 'sources', 'source-code', 'refund-service.ts'), 'export function refund() { return true }\n')
+
+    const component = createLocalFilesIngestComponent()
+    const result = await component.process?.(emptyPipelineState(), {
+      rootDir,
+      outputDir: join(rootDir, '.context'),
+      config: defineContextProject({ sources: [{ name: 'workspace', path: './sources' }] }, { rootDir }),
+      pipelineId: 'compile',
+      stage: 'ingest'
+    })
+
+    const decisions = JSON.parse(await readFile(join(rootDir, '.context', 'state', 'grouping-decisions.json'), 'utf8')) as {
+      schemaVersion: string
+      agent?: string
+      decisions: Array<{ path: string; kind: string }>
+    }
+    expect(decisions).toMatchObject({
+      schemaVersion: 'context-source-grouping-decisions.v1',
+      agent: 'inferred',
+      decisions: expect.arrayContaining([
+        expect.objectContaining({ path: 'sources/api-spec', kind: 'api_bundle' }),
+        expect.objectContaining({ path: 'sources/product-docs', kind: 'doc_bundle' }),
+        expect.objectContaining({ path: 'sources/source-code', kind: 'repository' }),
+        expect.objectContaining({ path: 'sources/test-cases', kind: 'test_bundle' })
+      ])
+    })
+    expect(decisions.decisions).toHaveLength(4)
+
+    const inventory = result?.artifacts?.sourceInventory as ContextSourceInventory
+    expect(inventory.summary.packages).toBe(4)
+    expect(inventory.summary.groups).toBe(4)
+    expect(inventory.packages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'sources/api-spec', kind: 'api_contracts', decisionSource: 'inferred' }),
+        expect.objectContaining({ path: 'sources/product-docs', kind: 'product_docs', decisionSource: 'inferred' }),
+        expect.objectContaining({ path: 'sources/source-code', kind: 'code_repository', decisionSource: 'inferred' }),
+        expect.objectContaining({ path: 'sources/test-cases', kind: 'test_materials', decisionSource: 'inferred' })
+      ])
+    )
+    expect(inventory.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: 'sources/api-spec', kind: 'api_bundle', decisionSource: 'inferred' }),
+        expect.objectContaining({ path: 'sources/product-docs', kind: 'doc_bundle', decisionSource: 'inferred' }),
+        expect.objectContaining({ path: 'sources/source-code', kind: 'repository', decisionSource: 'inferred' }),
+        expect.objectContaining({ path: 'sources/test-cases', kind: 'test_bundle', decisionSource: 'inferred' })
       ])
     )
   })
@@ -228,7 +394,7 @@ console.log(JSON.stringify({
       const call = JSON.parse(await readFile(callLog, 'utf8')) as string[]
       expect(call[0]).toBe('-p')
       expect(call[1]).toContain('context-source-grouping-request.v1')
-      const decisions = JSON.parse(await readFile(join(rootDir, '.context', 'sources', 'grouping-decisions.json'), 'utf8')) as {
+      const decisions = JSON.parse(await readFile(join(rootDir, '.context', 'state', 'grouping-decisions.json'), 'utf8')) as {
         schemaVersion: string
         agent?: string
         decisions: Array<{ path: string; title: string }>
@@ -419,7 +585,7 @@ console.log(JSON.stringify({
       stage: 'ingest'
     })
 
-    const request = JSON.parse(await readFile(join(rootDir, '.context', 'sources', 'grouping-request.json'), 'utf8')) as {
+    const request = JSON.parse(await readFile(join(rootDir, '.context', 'model', 'grouping-request.json'), 'utf8')) as {
       sources: Array<{ candidates: Array<{ path: string; suggestedKind: string; markers: string[] }> }>
     }
     const candidates = request.sources[0].candidates
@@ -554,7 +720,7 @@ console.log(JSON.stringify({
     expect(result?.edges?.map((edge) => edge.type)).not.toContain('contains_group')
   })
 
-  it('does not require grouping decisions for typed legacy sources', async () => {
+  it('materializes deterministic L0/L1 for typed legacy sources without grouping decisions', async () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'context-source-typed-'))
     await writeFixture(rootDir)
 
@@ -567,7 +733,32 @@ console.log(JSON.stringify({
       stage: 'ingest'
     })
 
+    const inventory = result?.artifacts?.sourceInventory as ContextSourceInventory
     expect(result?.rawArtifacts?.map((artifact) => artifact.source.location?.path)).toEqual(['sources/product.md'])
-    expect(result?.facts?.some((node) => node.type === 'SourceGroup')).toBe(false)
+    expect(inventory.summary).toMatchObject({ packages: 1, groups: 1 })
+    expect(inventory.packages).toEqual([
+      expect.objectContaining({
+        id: 'PACKAGE-product-docs-sources',
+        path: 'sources',
+        kind: 'product_docs',
+        decisionSource: 'typed-source'
+      })
+    ])
+    expect(inventory.groups).toEqual([
+      expect.objectContaining({
+        id: 'SOURCE-GROUP-product-docs-sources',
+        path: 'sources',
+        kind: 'doc_bundle',
+        decisionSource: 'typed-source'
+      })
+    ])
+    expect(result?.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'PACKAGE-product-docs-sources', type: 'Package' }),
+        expect.objectContaining({ id: 'SOURCE-GROUP-product-docs-sources', type: 'SourceGroup' })
+      ])
+    )
+    await expect(readFile(join(rootDir, '.context', 'model', 'grouping-request.json'), 'utf8')).rejects.toThrow()
+    await expect(readFile(join(rootDir, '.context', 'state', 'grouping-decisions.json'), 'utf8')).rejects.toThrow()
   })
 })

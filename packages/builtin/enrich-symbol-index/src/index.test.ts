@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { emptyPipelineState, type PipelineExecutionContext, type RawArtifact } from '@context-compiler/core/sdk'
+import { emptyPipelineState } from '@context-compiler/core/kernel'
+import { type PipelineExecutionContext, type RawArtifact } from '@context-compiler/core/sdk'
 import { createSymbolIndexEnrichComponent } from './index.js'
 
 const context: PipelineExecutionContext = {

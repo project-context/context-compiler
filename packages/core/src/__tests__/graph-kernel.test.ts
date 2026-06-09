@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { applyGraphPatch, applyGraphPatchBatch, buildPlanningPack, createGraphRevision, reconcileEvidenceReports, validateGraphPatch } from '@context-compiler/core/kernel'
-import { createContextEdge, createContextNode, type ContextGraph, type ContextSourceInventory, type GraphPatch, type EvidenceReport } from '@context-compiler/core/sdk'
+import { applyGraphPatch, applyGraphPatchBatch, buildPlanningPack, reconcileEvidenceReports, validateGraphPatch } from '@context-compiler/core/kernel'
+import { createGraphRevision } from '@context-compiler/core/graph'
+import { type EvidenceReport, type GraphPatch } from '@context-compiler/core/graph'
+import { createContextEdge, createContextNode, type ContextGraph, type ContextSourceInventory } from '@context-compiler/core/sdk'
 
 const sourceRef = {
   sourceId: 'workspace',

@@ -1,4 +1,5 @@
-import { defineContextExtension, type Diagnostic, type DocumentExtractionInput, type DocumentExtractionResult, type DocumentExtractorAdapter, type DocumentExtractorAdapterManifest } from '@context-compiler/core/sdk'
+import { defineContextExtension } from '@context-compiler/core/extensions'
+import { type Diagnostic, type DocumentExtractionInput, type DocumentExtractionResult, type DocumentExtractorAdapter, type DocumentExtractorAdapterManifest } from '@context-compiler/core/sdk'
 
 export const unstructuredDocumentExtractorManifest: DocumentExtractorAdapterManifest = {
   id: 'unstructured.document-extractor',

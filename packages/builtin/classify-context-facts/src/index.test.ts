@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createContextFactsClassifyComponent } from './index.js'
-import { defineContextProject, emptyPipelineState } from '@context-compiler/core/sdk'
+import { defineContextProject } from '@context-compiler/core/config'
+import { emptyPipelineState } from '@context-compiler/core/kernel'
 
 describe('context facts classifier', () => {
   it('preserves runtime and infrastructure node types declared by the core contract', async () => {

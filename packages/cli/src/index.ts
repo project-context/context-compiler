@@ -4,7 +4,9 @@ import { spawn } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildGraphFactHistory, approveContextCorrectionProposal, applyContextCorrectionProposal, expandGraphTarget, expandContextPackage, generateTaskContext, explainGraphFact, getContextPackageCorrectionDecision, getContextCorrectionProposal, getContextPackage, getGraphScopeView, getLayeredSourceTrace, listContextPackageCorrectionDecisions, listContextPackageCorrections, listContextPackages, previewContextCorrectionProposal, proposeContextPackageCorrectionDecisionRevert, rejectContextCorrectionProposal, replayContextPackageCorrectionDecisions, renderContextView, renderTaskContextMarkdown, readEvidenceReportListing, revertGraphPatch, searchContextPackage, searchContextIndex } from '@context-compiler/core/runtime'
-import { type AdapterRuntimeStatus, type ContextCorrectionProposalKind, type ContextCorrectionProposalStatus, type ContextProgressReporter, type ContextSourceCorrectionDecisionStatus, type EvidenceReport, type ContextAgentTarget, type ContextRuntimeHealth } from '@context-compiler/core/sdk'
+import { type ContextCorrectionProposalKind, type ContextCorrectionProposalStatus, type ContextSourceCorrectionDecisionStatus, type EvidenceReport, type ContextAgentTarget, type ContextRuntimeHealth } from '@context-compiler/core/runtime'
+import { type AdapterRuntimeStatus } from '@context-compiler/core/extensions'
+import { type ContextProgressReporter } from '@context-compiler/core/sdk'
 import {
   applySubmittedPatchesProject,
   contextPath,
@@ -114,7 +116,7 @@ export async function runCli(args: string[], options: RunCliOptions = {}): Promi
       }
       case 'doctor': {
         const { graph, config } = await readCompiledProject(runtime.cwd)
-        const emitted = await readOptionalFile(contextPath(runtime.cwd, config, 'diagnostics', 'context-health.json'))
+        const emitted = await readOptionalFile(contextPath(runtime.cwd, config, 'health.json'))
         const freshness = await readRuntimeFreshness(runtime.cwd, config)
         const runSummary = await readOptionalFile(contextPath(runtime.cwd, config, 'runtime', 'run-summary.json'))
         const adapterRuntimeStatuses = adapterRuntimeStatusesFromRunSummary(runSummary)
@@ -128,7 +130,7 @@ export async function runCli(args: string[], options: RunCliOptions = {}): Promi
       case 'view': {
         const viewName = rest[0] ?? 'project'
         const { graph, config } = await readCompiledProject(runtime.cwd)
-        const emitted = await readOptionalFile(contextPath(runtime.cwd, config, 'views', `${viewName}.md`))
+        const emitted = await readOptionalFile(contextPath(runtime.cwd, config, 'debug', 'views', `${viewName}.md`))
         runtime.writeOut(emitted ?? renderContextView(graph, config, viewName))
         break
       }
@@ -163,9 +165,14 @@ export async function runCli(args: string[], options: RunCliOptions = {}): Promi
         const { graph, config } = await readCompiledProject(runtime.cwd)
         const result = generateTaskContext(graph, config, { task, focus, module })
         const markdown = renderTaskContextMarkdown(result)
-        const tasksDir = contextPath(runtime.cwd, config, 'tasks')
-        await mkdir(tasksDir, { recursive: true })
-        await writeFile(join(tasksDir, `${result.outputSlug}.${focus ?? 'context'}.md`), markdown)
+        const taskPackDir = contextPath(runtime.cwd, config, 'packs', 'tasks')
+        const debugTaskDir = contextPath(runtime.cwd, config, 'debug', 'tasks')
+        await rm(contextPath(runtime.cwd, config, 'tasks'), { recursive: true, force: true })
+        await mkdir(taskPackDir, { recursive: true })
+        await mkdir(debugTaskDir, { recursive: true })
+        const taskFile = `${result.outputSlug}.${focus ?? 'context'}`
+        await writeFile(join(taskPackDir, `${taskFile}.json`), `${JSON.stringify({ schemaVersion: 'context-task-pack.v1', ...result, markdown }, null, 2)}\n`)
+        await writeFile(join(debugTaskDir, `${taskFile}.md`), markdown)
         runtime.writeOut(markdown)
         break
 	      }

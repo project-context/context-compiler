@@ -2,21 +2,20 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
   type ContextGraph,
-  type ContextPack,
-  type ContextProjectConfig,
-  type ContextSourceGroupRecord,
-  type ContextSourceInventory,
-  type ContextSourceInventoryEntry,
   type EvidenceReport,
   type GraphPatch,
   type GraphRevision,
   type PlanningCycle,
   type RehomeProposal
-} from '../contracts/index.js'
-import { inferContextViews, renderContextView, writeContextViews } from '../context/index.js'
+} from '../contracts/graph.js'
+import type { ContextProjectConfig } from '../contracts/config.js'
+import type { ContextPack } from '../contracts/runtime.js'
+import type { ContextSourceGroupRecord, ContextSourceInventory, ContextSourceInventoryEntry } from '../contracts/sources.js'
+import { inferContextViews, renderContextView } from '../context/index.js'
 import { loadGraphFiles, resolveOutputDir, writeGraphFiles } from '../graph/index.js'
 import { fingerprintValue } from '../graph/model.js'
-import { applyGraphPatchBatch, buildPlanningPack, createGraphRevision, reconcileEvidenceReports } from '../kernel/index.js'
+import { createGraphRevision } from '../graph/revisions.js'
+import { applyGraphPatchBatch, buildPlanningPack, reconcileEvidenceReports } from '../kernel/index.js'
 import { buildContextRuntimePlan } from './planner.js'
 import { buildContextRuntimeWorkspace, type ContextGraphKernelWorkspace } from './workspace.js'
 import { writeContextRuntimeWorkspace } from './writer.js'
@@ -100,7 +99,6 @@ export async function applySubmittedGraphPatches(options: ApplySubmittedGraphPat
       diagnostics: batch.diagnostics
     })
     await writeGraphFiles(nextGraph, outputDir, { sourceInventory })
-    await writeContextViews(nextGraph, outputDir, options.config)
     await writeContextRuntimeWorkspace(
       outputDir,
       buildContextRuntimeWorkspace(nextGraph, options.config, packs, {
@@ -110,7 +108,7 @@ export async function applySubmittedGraphPatches(options: ApplySubmittedGraphPat
         graphKernel
       })
     )
-    await writeJsonl(join(outputDir, 'graph', 'patches', 'submitted.jsonl'), [])
+    await writeJsonl(join(outputDir, 'graph', 'submitted-patches.jsonl'), [])
   }
 
   return {
@@ -133,11 +131,11 @@ export async function applySubmittedGraphPatches(options: ApplySubmittedGraphPat
 }
 
 export async function readGraphPatchLedger(outputDir: string): Promise<GraphPatch[]> {
-  return readOptionalJsonl<GraphPatch>(join(outputDir, 'graph', 'patches', 'patches.jsonl'))
+  return readOptionalJsonl<GraphPatch>(join(outputDir, 'graph', 'patches.jsonl'))
 }
 
 export async function readGraphPatchInbox(outputDir: string): Promise<GraphPatch[]> {
-  return readOptionalJsonl<GraphPatch>(join(outputDir, 'graph', 'patches', 'submitted.jsonl'))
+  return readOptionalJsonl<GraphPatch>(join(outputDir, 'graph', 'submitted-patches.jsonl'))
 }
 
 export async function readEvidenceReports(outputDir: string): Promise<EvidenceReport[]> {
@@ -216,7 +214,7 @@ function buildGraphKernelWorkspace(input: {
     }).slice(0, 16)}`,
     generatedAt: input.generatedAt,
     status: input.newRevision ? 'patched' : 'reconciled',
-    planningPackRef: '.context/plans/planning-pack.json',
+    planningPackRef: '.context/model/plans/planning-pack.json',
     patchIds: input.patches.map((patch) => patch.id),
     revisionIds: input.revisions.map((revision) => revision.id),
     diagnostics: input.diagnostics
@@ -243,10 +241,10 @@ function buildViewPacks(graph: ContextGraph, config: ContextProjectConfig): Cont
 }
 
 async function readSourceInventory(outputDir: string): Promise<ContextSourceInventory> {
-  const entries = await readOptionalJsonl<ContextSourceInventoryEntry>(join(outputDir, 'sources', 'inventory.jsonl'))
-  const groups = await readOptionalJsonl<ContextSourceGroupRecord>(join(outputDir, 'sources', 'groups.jsonl'))
-  const packages = await readOptionalJsonl<NonNullable<ContextSourceInventory['packages']>[number]>(join(outputDir, 'sources', 'packages.jsonl'))
-  const summary = await readOptionalJson<ContextSourceInventory['summary']>(join(outputDir, 'sources', 'summary.json'))
+  const entries = await readOptionalJsonl<ContextSourceInventoryEntry>(join(outputDir, 'model', 'source-inventory.jsonl'))
+  const groups = await readOptionalJsonl<ContextSourceGroupRecord>(join(outputDir, 'model', 'groups.jsonl'))
+  const packages = await readOptionalJsonl<NonNullable<ContextSourceInventory['packages']>[number]>(join(outputDir, 'model', 'packages.jsonl'))
+  const summary = await readOptionalJson<ContextSourceInventory['summary']>(join(outputDir, 'model', 'source-summary.json'))
   return {
     schemaVersion: 'context-source-inventory.v1',
     entries,
@@ -266,17 +264,25 @@ async function readSourceInventory(outputDir: string): Promise<ContextSourceInve
 }
 
 async function readGraphRevisions(outputDir: string): Promise<GraphRevision[]> {
-  return readOptionalJsonl<GraphRevision>(join(outputDir, 'graph', 'revisions', 'revisions.jsonl'))
+  return readOptionalJsonl<GraphRevision>(join(outputDir, 'graph', 'revisions.jsonl'))
 }
 
 async function readRehomeProposals(outputDir: string): Promise<RehomeProposal[]> {
-  return readOptionalJsonl<RehomeProposal>(join(outputDir, 'proposals', 'rehome-proposals.jsonl'))
+  return readOptionalJsonl<RehomeProposal>(join(outputDir, 'state', 'rehome-proposals.jsonl'))
 }
 
 async function readOptionalJson<T>(path: string): Promise<T | undefined> {
   try {
     return JSON.parse(await readFile(path, 'utf8')) as T
   } catch {
+    const legacyPath = legacyRuntimePath(path)
+    if (legacyPath && legacyPath !== path) {
+      try {
+        return JSON.parse(await readFile(legacyPath, 'utf8')) as T
+      } catch {
+        return undefined
+      }
+    }
     return undefined
   }
 }
@@ -286,8 +292,29 @@ async function readOptionalJsonl<T>(path: string): Promise<T[]> {
     const content = await readFile(path, 'utf8')
     return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
   } catch {
+    const legacyPath = legacyRuntimePath(path)
+    if (legacyPath && legacyPath !== path) {
+      try {
+        const content = await readFile(legacyPath, 'utf8')
+        return content.trim().length === 0 ? [] : content.trim().split('\n').map((line) => JSON.parse(line) as T)
+      } catch {
+        return []
+      }
+    }
     return []
   }
+}
+
+function legacyRuntimePath(path: string): string | undefined {
+  return path
+    .replace('/model/source-inventory.jsonl', '/sources/inventory.jsonl')
+    .replace('/model/groups.jsonl', '/sources/groups.jsonl')
+    .replace('/model/packages.jsonl', '/sources/packages.jsonl')
+    .replace('/model/source-summary.json', '/sources/summary.json')
+    .replace('/state/rehome-proposals.jsonl', '/proposals/rehome-proposals.jsonl')
+    .replace('/graph/patches.jsonl', '/graph/patches/patches.jsonl')
+    .replace('/graph/submitted-patches.jsonl', '/graph/patches/submitted.jsonl')
+    .replace('/graph/revisions.jsonl', '/graph/revisions/revisions.jsonl')
 }
 
 async function writeJsonl(path: string, records: unknown[]): Promise<void> {

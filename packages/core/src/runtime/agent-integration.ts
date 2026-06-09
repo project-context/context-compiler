@@ -2,10 +2,10 @@ import type {
   ContextAgentInstallFile,
   ContextAgentInstallPlan,
   ContextAgentTarget,
-  ContextProjectConfig,
   ContextRuntimeConfig,
   ContextSkillDefinition
-} from '../contracts/index.js'
+} from '../contracts/runtime.js'
+import type { ContextProjectConfig } from '../contracts/config.js'
 
 const DEFAULT_SKILLS: ContextSkillDefinition[] = [
   {
@@ -25,7 +25,7 @@ const DEFAULT_SKILLS: ContextSkillDefinition[] = [
   }
 ]
 
-/** Build the explicit install plan for repo-native Codex and Claude Code integration files. */
+/** Build the explicit install plan for repo-native Codex, Claude Code, and OpenCode integration files. */
 export function buildContextAgentInstallPlan(
   config: ContextProjectConfig,
   runtimeConfig: ContextRuntimeConfig = {},
@@ -50,6 +50,13 @@ export function buildContextAgentInstallPlan(
       mergeJsonFile('claude', '.mcp.json', renderClaudeMcpJson()),
       mergeJsonFile('claude', '.claude/settings.json', renderClaudeSettingsJson()),
       ...skills.map((skill) => generatedFile('claude', `.claude/skills/context-${safeId(skill.id)}/SKILL.md`, renderSkill(skill)))
+    )
+  }
+
+  if (targetAgents.includes('opencode')) {
+    files.push(
+      mergeJsonFile('opencode', 'opencode.json', renderOpenCodeJson()),
+      ...skills.map((skill) => generatedFile('opencode', `.opencode/skills/context-${safeId(skill.id)}/SKILL.md`, renderSkill(skill)))
     )
   }
 
@@ -78,25 +85,26 @@ export function applyManagedBlock(existing: string, marker: string, content: str
   return ensureTrailingNewline(`${existing.trimEnd()}${separator}${block}`)
 }
 
-function targetAgentsFor(target: ContextAgentTarget): Array<'codex' | 'claude'> {
+function targetAgentsFor(target: ContextAgentTarget): Array<'codex' | 'claude' | 'opencode'> {
   if (target === 'codex') return ['codex']
   if (target === 'claude') return ['claude']
-  return ['codex', 'claude']
+  if (target === 'opencode') return ['opencode']
+  return ['codex', 'claude', 'opencode']
 }
 
 function normalizeSkills(skills: ContextSkillDefinition[] | undefined): ContextSkillDefinition[] {
   return (skills && skills.length > 0 ? skills : DEFAULT_SKILLS).filter((skill) => skill.id !== 'product' && skill.id !== 'design')
 }
 
-function managedFile(agent: 'codex' | 'claude', path: string, marker: string, content: string): ContextAgentInstallFile {
+function managedFile(agent: 'codex' | 'claude' | 'opencode', path: string, marker: string, content: string): ContextAgentInstallFile {
   return { agent, path, mode: 'managed-block', marker, content, status: 'planned' }
 }
 
-function generatedFile(agent: 'codex' | 'claude', path: string, content: string): ContextAgentInstallFile {
+function generatedFile(agent: 'codex' | 'claude' | 'opencode', path: string, content: string): ContextAgentInstallFile {
   return { agent, path, mode: 'write-generated', content, status: 'planned' }
 }
 
-function mergeJsonFile(agent: 'codex' | 'claude', path: string, content: string): ContextAgentInstallFile {
+function mergeJsonFile(agent: 'codex' | 'claude' | 'opencode', path: string, content: string): ContextAgentInstallFile {
   return { agent, path, mode: 'merge-json', content, status: 'planned' }
 }
 
@@ -113,7 +121,7 @@ function renderAgentsInstructions(config: ContextProjectConfig): string {
     '- After package drill-down, inspect correction decision memory first (`list_package_correction_decisions`, `get_package_correction_decision`, `replay_package_correction_decisions`, `propose_package_correction_decision_revert`), then use package correction proposal tools (`list_package_corrections`, `get_correction_proposal`, `preview_correction_proposal`, `approve_correction_proposal`, `reject_correction_proposal`, `apply_correction_proposal`) before graph patch tools.',
     '- Use `context package list`, `context package show`, `context package expand`, and `context package search` when working from the CLI.',
     '- Use graph scope tools only for low-level debugging after you have identified the relevant package.',
-    `- Use \`${outputDir}/views/project.md\` only as a short human-readable orientation snapshot.`,
+    `- Use \`${outputDir}/debug/views/project.md\` only as a fallback human-readable orientation snapshot.`,
     '- For implementation work, call `get_task_context` or run `context task "<task>" --focus implementation` when task context matters.',
     '- Run `context doctor` before handoff when context quality or freshness matters.',
     `- Use MCP config from \`${outputDir}/mcp/server.config.json\` when an agent-native MCP client is available.`
@@ -132,9 +140,24 @@ function renderClaudeInstructions(): string {
     '- Review correction decisions first with `list_package_correction_decisions`, `get_package_correction_decision`, and `replay_package_correction_decisions`; then review correction proposals with `list_package_corrections`, `get_correction_proposal`, and `preview_correction_proposal` before graph patch tools.',
     '- Use graph MCP tools only as low-level debugging tools after package context is identified.',
     '- Use `.claude/skills/context-*` skills for implementation, review, and testing workflows.',
-    '- Use MCP resources such as `context://manifest`, `context://health`, and `context://views/project` when available.',
-    '- Check `.context/diagnostics/context-health.json` when context looks stale or incomplete.'
+    '- Use MCP resources such as `context://manifest`, `context://health`, `context://packs/project`, and `context://debug/views/project` when available.',
+    '- Check `.context/health.json` when context looks stale or incomplete.'
   ].join('\n')
+}
+
+function renderOpenCodeJson(): string {
+  return JSON.stringify(
+    {
+      instructions: ['AGENTS.md'],
+      notes: [
+        'Context Compiler MCP should be used before scanning generated .context files.',
+        'Use .context/manifest.json and .context/health.json as the machine entrypoints.',
+        'Use .context/debug only as a fallback for human-readable diagnostics.'
+      ]
+    },
+    null,
+    2
+  )
 }
 
 function renderCodexMcpConfig(): string {

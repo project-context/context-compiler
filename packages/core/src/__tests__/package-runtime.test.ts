@@ -205,17 +205,17 @@ function entry(id: string, path: string, route: ContextSourceInventory['entries'
 }
 
 async function writeSources(outputDir: string, inventory: ContextSourceInventory): Promise<void> {
-  await mkdir(join(outputDir, 'sources'), { recursive: true })
-  await writeJsonl(join(outputDir, 'sources', 'inventory.jsonl'), inventory.entries)
-  await writeJsonl(join(outputDir, 'sources', 'groups.jsonl'), inventory.groups ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'packages.jsonl'), inventory.packages ?? [])
-  await writeJsonl(join(outputDir, 'sources', 'build-units.jsonl'), inventory.packages?.flatMap((record) => record.buildUnits) ?? [])
-  await writeFile(join(outputDir, 'sources', 'summary.json'), `${JSON.stringify(inventory.summary, null, 2)}\n`)
+  await mkdir(join(outputDir, 'model'), { recursive: true })
+  await writeJsonl(join(outputDir, 'model', 'source-inventory.jsonl'), inventory.entries)
+  await writeJsonl(join(outputDir, 'model', 'groups.jsonl'), inventory.groups ?? [])
+  await writeJsonl(join(outputDir, 'model', 'packages.jsonl'), inventory.packages ?? [])
+  await writeJsonl(join(outputDir, 'model', 'build-units.jsonl'), inventory.packages?.flatMap((record) => record.buildUnits) ?? [])
+  await writeFile(join(outputDir, 'model', 'source-summary.json'), `${JSON.stringify(inventory.summary, null, 2)}\n`)
 }
 
 async function writeCorrections(outputDir: string): Promise<void> {
   await mkdir(join(outputDir, 'graph'), { recursive: true })
-  await mkdir(join(outputDir, 'proposals'), { recursive: true })
+  await mkdir(join(outputDir, 'state'), { recursive: true })
   await writeJsonl(join(outputDir, 'graph', 'evidence-reports.jsonl'), [{
     schemaVersion: 'context-evidence-report.v1',
     id: 'evidence:docs-correction',
@@ -253,7 +253,7 @@ async function writeCorrections(outputDir: string): Promise<void> {
     }],
     rehomeProposals: []
   }])
-  await writeJsonl(join(outputDir, 'proposals', 'rehome-proposals.jsonl'), [{
+  await writeJsonl(join(outputDir, 'state', 'rehome-proposals.jsonl'), [{
     schemaVersion: 'context-rehome-proposal.v1',
     id: 'rehome:docs-guide',
     sourcePath: 'sources/product-docs/guide.md',

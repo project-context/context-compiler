@@ -220,7 +220,7 @@ describe('graph viewer runtime', () => {
 
   it('searches through SQLite first and maps hydrated results to viewer node elements', async () => {
     const outputDir = await createContextOutput()
-    await writeFtsIndex(join(outputDir, 'indexes', 'global', 'fts.sqlite'), [
+    await writeFtsIndex(join(outputDir, 'index', 'global', 'fts.sqlite'), [
       { id: 'SYM-index-ts-uploadFileAPI', text: 'uploadFileAPI /config/uploadFile' }
     ])
 

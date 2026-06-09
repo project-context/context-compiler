@@ -67,7 +67,7 @@ export interface ContextSkillDefinition {
 
 /** Generated integration file for a coding agent. */
 export interface ContextAgentIntegration {
-  id: 'codex' | 'claude' | 'cursor' | string
+  id: 'codex' | 'claude' | 'opencode' | string
   title: string
   path: string
   content: string
@@ -169,11 +169,11 @@ export interface ContextRuntimeTraceEvent {
   metadata: Record<string, unknown>
 }
 
-export type ContextAgentTarget = 'codex' | 'claude' | 'all'
+export type ContextAgentTarget = 'codex' | 'claude' | 'opencode' | 'all'
 
 export interface ContextAgentInstallFile {
   path: string
-  agent: 'codex' | 'claude'
+  agent: 'codex' | 'claude' | 'opencode'
   mode: 'managed-block' | 'write-generated' | 'merge-json'
   marker?: string
   content: string
@@ -197,7 +197,7 @@ export interface ContextAgentInstallConflict {
 export interface ContextAgentInstallPlan {
   schemaVersion: 'context-agent-install-plan.v1'
   generatedAt: string
-  targetAgents: Array<'codex' | 'claude'>
+  targetAgents: Array<'codex' | 'claude' | 'opencode'>
   files: ContextAgentInstallFile[]
   metadata: Record<string, unknown>
 }
@@ -237,7 +237,7 @@ export interface OutputArtifact {
   metadata: Record<string, unknown>
 }
 
-/** JSON index manifest emitted into `.context/indexes`. */
+/** JSON index manifest emitted into `.context/index`. */
 export interface ContextIndexManifest {
   schemaVersion: string
   files: {
@@ -285,14 +285,16 @@ export interface ContextRuntimeManifest {
     storage: 'jsonl+sqlite'
     nodes: string
     edges: string
+    diagnostics: string
     subgraphs: string
     scopes: string
     partitions: string
     revisions: string
     patches: string
+    submittedPatches: string
     evidenceReports: string
   }
-  indexes: {
+  index: {
     graph: string
     symbols: string
     apis: string
@@ -303,38 +305,37 @@ export interface ContextRuntimeManifest {
     fingerprints: string
     scopes: string
   }
-  plans: {
-    planningPack: string
-    planningCycles: string
-    sourceTriage: string
-    sourceGroups: string
-    workspaceGraph: string
-    scopeBuild: string
-    adapterPlan: string
-  }
-  proposals: {
-    rehome: string
-    corrections: string
-  }
-  artifacts: {
-    projectBrief: string
-    domains: string
-    tasks: string
-    reports: string
-  }
-  sources: {
-    inventory: string
-    routes: string
-    unsupported: string
-    summary: string
-    groups: string
+  model: {
+    sourceInventory: string
+    sourceRoutes: string
+    unsupportedSources: string
+    sourceSummary: string
     packages: string
+    groups: string
     buildUnits: string
+    scopes: string
+    claims: string
     groupingRequest: string
-    groupingDecisions: string
-    correctionDecisions: string
+    plans: {
+      planningPack: string
+      planningCycles: string
+      sourceTriage: string
+      sourceGroups: string
+      workspaceGraph: string
+      scopeBuild: string
+      adapterPlan: string
+    }
   }
-  packs: Array<{ id: string; kind: ContextPack['kind']; view?: string; task?: string }>
+  store: {
+    blobs: string
+    chunks: string
+    sourceMap: string
+  }
+  packs: {
+    views: string
+    tasks: string
+  }
+  packEntries: Array<{ id: string; kind: ContextPack['kind']; view?: string; task?: string; path?: string }>
   runtime: {
     providers: string
     mcp: string
@@ -345,7 +346,7 @@ export interface ContextRuntimeManifest {
     runSummary: string
     agentInstallPlan: string
     freshness: ContextRuntimeFreshness
-    installStatus: Record<'codex' | 'claude', ContextAgentInstallStatus>
+    installStatus: Record<'codex' | 'claude' | 'opencode', ContextAgentInstallStatus>
     capabilitySurfaces: Record<string, string[]>
     skills: string[]
     agents: string[]
@@ -354,12 +355,26 @@ export interface ContextRuntimeManifest {
   agents: {
     claude: string
     codex: string
-    cursor: string
+    opencode: string
   }
-  diagnostics: {
-    health: string
-    latest: string
-    report: string
+  debug: {
+    views: string
+    reports: string
+    projectBrief: string
+    domains: string
+    maps: string
+    latestDiagnostics: string
+  }
+  state: {
+    corrections: string
+    rehomeProposals: string
+    groupingDecisions: string
+    sourceCorrectionDecisions: string
+    approvals: string
+    notes: string
+  }
+  cache: {
+    root: string
   }
 }
 

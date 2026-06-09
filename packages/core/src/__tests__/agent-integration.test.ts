@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { applyManagedBlock, buildContextAgentInstallPlan } from '@context-compiler/core/runtime'
-import { defineContextProject, type ContextRuntimeConfig } from '@context-compiler/core/sdk'
+import { type ContextRuntimeConfig } from '@context-compiler/core/runtime'
+import { defineContextProject } from '@context-compiler/core/config'
 
 const runtimeConfig: ContextRuntimeConfig = {
   skills: [
@@ -18,7 +19,7 @@ const runtimeConfig: ContextRuntimeConfig = {
 }
 
 describe('agent integration install planning', () => {
-  it('plans native Codex and Claude files without requiring user-authored runtime config', () => {
+  it('plans native Codex, Claude, and OpenCode files without requiring user-authored runtime config', () => {
     const config = defineContextProject(
       {
         sources: [{ type: 'markdown', name: 'product-docs', path: './docs/product' }]
@@ -30,19 +31,22 @@ describe('agent integration install planning', () => {
     const paths = plan.files.map((file) => file.path)
 
     expect(plan.schemaVersion).toBe('context-agent-install-plan.v1')
-    expect(plan.targetAgents).toEqual(['codex', 'claude'])
+    expect(plan.targetAgents).toEqual(['codex', 'claude', 'opencode'])
     expect(paths).toEqual(
       expect.arrayContaining([
         'AGENTS.md',
         'CLAUDE.md',
+        'opencode.json',
         '.codex/config.toml',
         '.codex/agents/context-explorer.toml',
         '.mcp.json',
         '.claude/settings.json',
         '.agents/skills/context-implementation/SKILL.md',
         '.claude/skills/context-implementation/SKILL.md',
+        '.opencode/skills/context-implementation/SKILL.md',
         '.agents/skills/context-review/SKILL.md',
-        '.claude/skills/context-review/SKILL.md'
+        '.claude/skills/context-review/SKILL.md',
+        '.opencode/skills/context-review/SKILL.md'
       ])
     )
     expect(plan.files.every((file) => file.status === 'planned')).toBe(true)
@@ -63,8 +67,12 @@ describe('agent integration install planning', () => {
 
     const claudeInstructions = plan.files.find((file) => file.path === 'CLAUDE.md')
     expect(claudeInstructions?.content).toContain('@AGENTS.md')
-    expect(claudeInstructions?.content).toContain('.context/diagnostics/context-health.json')
+    expect(claudeInstructions?.content).toContain('.context/health.json')
     expect(claudeInstructions?.content).toContain('docs/architecture/super-data-network-goal.md')
+
+    const opencodeConfig = plan.files.find((file) => file.path === 'opencode.json')
+    expect(opencodeConfig?.content).toContain('AGENTS.md')
+    expect(opencodeConfig?.content).toContain('Context Compiler MCP')
 
     const claudeSettings = plan.files.find((file) => file.path === '.claude/settings.json')
     expect(claudeSettings?.content).toContain('mcp__contextCompiler__query_runtime_provider')
@@ -72,12 +80,12 @@ describe('agent integration install planning', () => {
 
   it('updates managed blocks idempotently without deleting user content', () => {
     const original = '# Existing instructions\n\nKeep this human-authored section.\n'
-    const first = applyManagedBlock(original, 'context-compiler:codex', 'Use `.context/views/project.md` first.')
+    const first = applyManagedBlock(original, 'context-compiler:codex', 'Use `.context/debug/views/project.md` first.')
     const second = applyManagedBlock(first, 'context-compiler:codex', 'Use `context doctor` before handoff.')
 
     expect(second).toContain('# Existing instructions')
     expect(second).toContain('Keep this human-authored section.')
-    expect(second).not.toContain('Use `.context/views/project.md` first.')
+    expect(second).not.toContain('Use `.context/debug/views/project.md` first.')
     expect(second).toContain('Use `context doctor` before handoff.')
     expect(second.match(/BEGIN context-compiler:codex/g)).toHaveLength(1)
     expect(second.match(/END context-compiler:codex/g)).toHaveLength(1)

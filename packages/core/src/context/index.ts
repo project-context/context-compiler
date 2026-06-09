@@ -6,11 +6,12 @@ import {
   primarySourceRef,
   sourceUri
 } from '../graph/model.js'
-import type { ContextEdge, ContextGraph, ContextNode, ContextNodeType, ContextProjectConfig, Diagnostic } from '../contracts/index.js'
+import type { ContextProjectConfig } from '../contracts/config.js'
+import type { ContextEdge, ContextGraph, ContextNode, ContextNodeType, Diagnostic } from '../contracts/graph.js'
 
 export type ContextFocus = 'project' | 'implementation' | 'review' | 'testing' | 'product' | 'design'
 
-/** Inferred view definition used to render a stable `.context/views/*.md` file. */
+/** Inferred view definition used to render stable debug Markdown and structured context packs. */
 export interface ContextViewDefinition {
   name: string
   title: string

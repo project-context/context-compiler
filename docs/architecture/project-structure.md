@@ -1,6 +1,8 @@
 # Project Structure
 
-Context Compiler uses a pnpm monorepo organized around explicit core boundaries, replaceable built-in components, extension adapters, CLI/MCP entrypoints, and the generated `.context` runtime workspace.
+Context Compiler uses a pnpm monorepo organized around explicit core boundaries, replaceable built-in components, extension adapters, CLI/MCP entrypoints, and the generated agent-native `.context` runtime workspace.
+
+The `.context` workspace is specified in [Agent-Native `.context` Runtime Workspace](./context-runtime-workspace.zh.md). Treat it as a machine-optimized runtime datastore for agents, MCP, CLI, indexes, graph facts, source maps, and debug projections rather than as a human-authored documentation folder.
 
 ## Workspace Packages
 
@@ -65,7 +67,9 @@ packages/core/src/
 
 `contracts` is split by domain and re-exported through explicit subpath APIs. Internal packages should not import from the root `@context-compiler/core` path. Use:
 
-- `@context-compiler/core/sdk` for component factories, contracts, diagnostics, extension helpers, and basic graph model helpers.
+- `@context-compiler/core/sdk` for component factories, component/adapter contracts, diagnostics, and basic graph model helpers.
+- `@context-compiler/core/config` for config definition/loading and config types.
+- `@context-compiler/core/extensions` for extension manifests, manifest validation, and adapter runtime helpers.
 - `@context-compiler/core/kernel` for pipeline planning/running/state and graph revision/patch planning.
 - `@context-compiler/core/graph` for graph model, scopes, adapter normalization, graph file IO, and output-dir helpers.
 - `@context-compiler/core/source-model` for source inventory, L0 package, L1 source group, grouping/correction/build-unit helpers, and source-first plans.

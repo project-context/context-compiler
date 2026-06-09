@@ -1,12 +1,7 @@
 import { resolve } from 'node:path'
-import type {
-  ContextProgressEvent,
-  ContextProgressReporter,
-  ContextProjectConfig,
-  PipelineDefinition,
-  PipelineExecutionContext,
-  PipelineState
-} from '../contracts/index.js'
+import type { ContextProjectConfig } from '../contracts/config.js'
+import type { ContextProgressEvent, ContextProgressReporter } from '../contracts/adapters.js'
+import type { PipelineDefinition, PipelineExecutionContext, PipelineState } from '../contracts/pipeline.js'
 import { createDiagnostic } from '../diagnostics/index.js'
 import { PipelinePlanner } from './planner.js'
 import { emptyPipelineState, graphFromState, mergePipelineState } from './state.js'

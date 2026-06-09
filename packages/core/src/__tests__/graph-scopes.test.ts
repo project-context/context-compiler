@@ -126,19 +126,27 @@ describe('graph scopes', () => {
     })
 
     const groupGraph = result.graphs.find((scopeGraph) => scopeGraph.scope.id === groupScope?.id)
+    const buildGraphScope = result.scopes.find((scope) => scope.kind === 'build_graph' && scope.sourceGroupId === 'SOURCE-GROUP-workspace-sources-product-docs')
+    const buildGraph = result.graphs.find((scopeGraph) => scopeGraph.scope.id === buildGraphScope?.id)
     const fileScope = result.scopes.find((scope) => scope.kind === 'file' && scope.path === 'sources/product-docs/requirements.md')
     const unsupportedFileScope = result.scopes.find((scope) => scope.kind === 'file' && scope.path === 'sources/product-docs/research.pptx')
     const contentScope = result.scopes.find((scope) => scope.kind === 'content' && scope.path === 'sources/product-docs/requirements.md#content')
 
+    expect(buildGraphScope).toMatchObject({
+      kind: 'build_graph',
+      parentScopeId: groupScope?.id,
+      sourceGroupId: 'SOURCE-GROUP-workspace-sources-product-docs',
+      title: '语义资料图: Product docs'
+    })
     expect(fileScope).toMatchObject({
       kind: 'file',
-      parentScopeId: groupScope?.id,
+      parentScopeId: buildGraphScope?.id,
       rootNodeId: reqFileNodeId,
       path: 'sources/product-docs/requirements.md'
     })
     expect(unsupportedFileScope).toMatchObject({
       kind: 'file',
-      parentScopeId: groupScope?.id,
+      parentScopeId: buildGraphScope?.id,
       rootNodeId: pptFileNodeId,
       path: 'sources/product-docs/research.pptx'
     })
@@ -148,12 +156,14 @@ describe('graph scopes', () => {
       path: 'sources/product-docs/requirements.md#content'
     })
     expect(groupGraph?.graph.nodes.map((node) => node.id)).toEqual(
-      expect.arrayContaining(['SOURCE-GROUP-workspace-sources-product-docs', 'REQ-checkout', reqFileNodeId, pptFileNodeId])
+      expect.arrayContaining(['SOURCE-GROUP-workspace-sources-product-docs', buildGraphScope?.rootNodeId])
     )
+    expect(groupGraph?.graph.nodes.map((node) => node.type)).toEqual(expect.arrayContaining(['SourceGroup', 'SemanticCorpusGraph']))
+    expect(groupGraph?.graph.nodes.map((node) => node.type)).not.toEqual(expect.arrayContaining(['Requirement', 'File']))
     expect(groupGraph?.graph.nodes.some((node) => node.type === 'SourceSnapshot')).toBe(false)
-    expect(groupGraph?.graph.nodes.find((node) => node.id === pptFileNodeId)).toMatchObject({
+    expect(buildGraph?.graph.nodes.find((node) => node.id === pptFileNodeId)).toMatchObject({
       type: 'File',
-      scopeId: groupScope?.id,
+      scopeId: buildGraphScope?.id,
       subgraphRef: `.context/graph/scopes/scope-file-source-entry-ppt`,
       properties: {
         path: 'sources/product-docs/research.pptx',
@@ -167,12 +177,22 @@ describe('graph scopes', () => {
         expect.objectContaining({
           type: 'has_child_scope',
           from: 'SOURCE-GROUP-workspace-sources-product-docs',
+          to: buildGraphScope?.rootNodeId,
+          properties: expect.objectContaining({ childScopeId: buildGraphScope?.id, childScopeKind: 'build_graph' })
+        })
+      ])
+    )
+    expect(buildGraph?.graph.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'has_child_scope',
+          from: buildGraphScope?.rootNodeId,
           to: reqFileNodeId,
           properties: expect.objectContaining({ childScopeId: fileScope?.id })
         }),
         expect.objectContaining({
           type: 'has_child_scope',
-          from: 'SOURCE-GROUP-workspace-sources-product-docs',
+          from: buildGraphScope?.rootNodeId,
           to: pptFileNodeId,
           properties: expect.objectContaining({ childScopeId: unsupportedFileScope?.id })
         }),
@@ -213,18 +233,28 @@ describe('graph scopes', () => {
       scopes: Array<{ id: string; nodes: string; edges: string; summary: string }>
     }
     const groupScope = manifest.scopes.find((scope) => scope.id.includes('source-group'))
+    const buildGraphScope = manifest.scopes.find((scope) => scope.id.includes('build-graph'))
 
     expect(groupScope).toBeDefined()
     expect(groupScope?.nodes).toMatch(/\.context\/graph\/scopes\/.+\/nodes\.jsonl/)
     const nodesPath = join(outputDir, groupScope!.nodes.replace('.context/', ''))
     const nodes = (await readFile(nodesPath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line) as { id: string })
-    expect(nodes.map((node) => node.id)).toContain(`FILE-${'b'.repeat(16)}`)
+    expect(nodes.map((node) => node.id).some((id) => id.startsWith('BUILD-GRAPH-'))).toBe(true)
+    expect(nodes.map((node) => node.id)).not.toContain(`FILE-${'b'.repeat(16)}`)
     expect(nodes.map((node) => node.id)).not.toContain(`SNAPSHOT-${'b'.repeat(16)}`)
+
+    expect(buildGraphScope).toBeDefined()
+    const buildGraphNodesPath = join(outputDir, buildGraphScope!.nodes.replace('.context/', ''))
+    const buildGraphNodes = (await readFile(buildGraphNodesPath, 'utf8')).trim().split('\n').map((line) => JSON.parse(line) as { id: string })
+    expect(buildGraphNodes.map((node) => node.id)).toContain(`FILE-${'b'.repeat(16)}`)
+    expect(buildGraphNodes.map((node) => node.id)).not.toContain(`SNAPSHOT-${'b'.repeat(16)}`)
 
     const indexes = buildContextIndexes(graph, { sourceInventory: inventory })
     const scopedIndex = indexes.scopes.find((scope) => scope.scope.id === groupScope?.id)
-    expect(scopedIndex?.indexes.fts.map((entry) => entry.id)).toEqual(expect.arrayContaining(['REQ-checkout']))
-    expect(scopedIndex?.indexes.graph.map((entry) => entry.id)).toEqual(expect.arrayContaining([`FILE-${'b'.repeat(16)}`]))
+    const buildGraphIndex = indexes.scopes.find((scope) => scope.scope.id === buildGraphScope?.id)
+    expect(scopedIndex?.indexes.graph.map((entry) => entry.id).some((id) => id.startsWith('BUILD-GRAPH-'))).toBe(true)
+    expect(buildGraphIndex?.indexes.fts.map((entry) => entry.id)).toEqual(expect.arrayContaining(['REQ-checkout']))
+    expect(buildGraphIndex?.indexes.graph.map((entry) => entry.id)).toEqual(expect.arrayContaining([`FILE-${'b'.repeat(16)}`]))
   })
 
   it('keeps unknown packages drillable with inventory-only adapter refs', () => {

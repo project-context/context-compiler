@@ -7,9 +7,12 @@ import { promisify } from 'node:util'
 import { dirname, resolve } from 'node:path'
 import { compileContextProject } from '@context-compiler/core/compiler'
 import { approveContextCorrectionProposal, applyContextCorrectionProposal, buildGraphFactHistory, deriveEvidenceGraphPatches, expandContextPackage, expandGraphTarget, explainGraphFact, getContextCorrectionProposal, getContextPackageCorrectionDecision, getGraphScopeView, getContextPackage, getLayeredSourceTrace, generateTaskContext, listContextPackageCorrections, listContextPackageCorrectionDecisions, listContextPackages, previewContextCorrectionProposal, proposeContextPackageCorrectionDecisionRevert, readEvidenceReportListing, rejectContextCorrectionProposal, replayContextPackageCorrectionDecisions, renderContextView, searchContextPackage, searchContextIndex } from '@context-compiler/core/runtime'
-import { applyGraphPatch, createGraphRevision } from '@context-compiler/core/kernel'
-import { explainTrace, loadGraphFiles, resolveOutputDir } from '@context-compiler/core/graph'
-import { loadContextConfig, nodeContent, nodeStringProperty, sourceUri, type ContextCorrectionProposalKind, type ContextCorrectionProposalStatus, type ContextSourceCorrectionDecisionStatus, type ContextGraph, type ContextGraphScopeManifest, type ContextProjectConfig, type ContextRuntimeConfig, type ContextRuntimeEvidence, type ContextRuntimeFreshness, type ContextRuntimeProvider, type EvidenceReport, type ContextSourceInventoryEntry, type ContextToolDefinition, type GraphPatch, type GraphRevision, type PlanningPack, type RehomeProposal } from '@context-compiler/core/sdk'
+import { type ContextCorrectionProposalKind, type ContextCorrectionProposalStatus, type ContextRuntimeConfig, type ContextRuntimeEvidence, type ContextRuntimeFreshness, type ContextRuntimeProvider, type ContextSourceCorrectionDecisionStatus, type ContextToolDefinition } from '@context-compiler/core/runtime'
+import { applyGraphPatch } from '@context-compiler/core/kernel'
+import { createGraphRevision } from '@context-compiler/core/graph'
+import { explainTrace, loadGraphFiles, resolveOutputDir, type ContextGraphScopeManifest, type EvidenceReport, type GraphPatch, type GraphRevision, type PlanningPack, type RehomeProposal } from '@context-compiler/core/graph'
+import { loadContextConfig, type ContextProjectConfig } from '@context-compiler/core/config'
+import { nodeContent, nodeStringProperty, sourceUri, type ContextGraph, type ContextSourceInventoryEntry } from '@context-compiler/core/sdk'
 import { createBuiltinLocalDistribution } from '@context-compiler/builtin-local'
 
 const execFileAsync = promisify(execFile)
@@ -333,7 +336,7 @@ async function readContextManifest(outputDir: string): Promise<unknown> {
 }
 
 async function readContextHealth(outputDir: string): Promise<unknown> {
-  return JSON.parse(await readFile(resolve(outputDir, 'diagnostics', 'context-health.json'), 'utf8')) as unknown
+  return JSON.parse(await readFile(resolve(outputDir, 'health.json'), 'utf8')) as unknown
 }
 
 async function readRuntimePlan(outputDir: string): Promise<unknown> {
@@ -418,7 +421,7 @@ async function searchContext(project: CompiledContextProject, input: Record<stri
 }
 
 async function readPlanningPack(outputDir: string): Promise<PlanningPack> {
-  return JSON.parse(await readFile(resolve(outputDir, 'plans', 'planning-pack.json'), 'utf8')) as PlanningPack
+  return JSON.parse(await readFile(resolve(outputDir, 'model', 'plans', 'planning-pack.json'), 'utf8')) as PlanningPack
 }
 
 async function inspectSourceCandidate(outputDir: string, path: string): Promise<unknown> {
@@ -445,7 +448,7 @@ async function searchSourceInventory(outputDir: string, input: Record<string, un
 }
 
 async function readSourceInventory(outputDir: string): Promise<ContextSourceInventoryEntry[]> {
-  return readOptionalJsonl<ContextSourceInventoryEntry>(resolve(outputDir, 'sources', 'inventory.jsonl'))
+  return readOptionalJsonl<ContextSourceInventoryEntry>(resolve(outputDir, 'model', 'source-inventory.jsonl'))
 }
 
 function inventorySearchText(entry: ContextSourceInventoryEntry): string {
@@ -464,7 +467,7 @@ function inventorySearchText(entry: ContextSourceInventoryEntry): string {
 
 async function listGraphPatches(outputDir: string): Promise<unknown> {
   const [ledger, inbox, evidenceReports, graph, revisions] = await Promise.all([
-    readOptionalJsonl<GraphPatch>(resolve(outputDir, 'graph', 'patches', 'patches.jsonl')),
+    readOptionalJsonl<GraphPatch>(resolve(outputDir, 'graph', 'patches.jsonl')),
     readOptionalJsonl<GraphPatch>(submittedPatchPath(outputDir)),
     readOptionalJsonl<EvidenceReport>(resolve(outputDir, 'graph', 'evidence-reports.jsonl')),
     loadGraphFiles(outputDir),
@@ -490,7 +493,7 @@ async function listGraphPatches(outputDir: string): Promise<unknown> {
 }
 
 async function getRehomeProposals(outputDir: string): Promise<unknown> {
-  const proposals = await readOptionalJsonl<RehomeProposal>(resolve(outputDir, 'proposals', 'rehome-proposals.jsonl'))
+  const proposals = await readOptionalJsonl<RehomeProposal>(resolve(outputDir, 'state', 'rehome-proposals.jsonl'))
   return { proposals }
 }
 
@@ -525,7 +528,7 @@ async function submitGraphPatch(outputDir: string, input: Record<string, unknown
   return {
     submitted: true,
     patchId: patch.id,
-    path: '.context/graph/patches/submitted.jsonl'
+    path: '.context/graph/submitted-patches.jsonl'
   }
 }
 
@@ -539,11 +542,11 @@ async function resolvePatchRevision(outputDir: string, patch: GraphPatch): Promi
 }
 
 async function readGraphRevisions(outputDir: string): Promise<GraphRevision[]> {
-  return readOptionalJsonl<GraphRevision>(resolve(outputDir, 'graph', 'revisions', 'revisions.jsonl'))
+  return readOptionalJsonl<GraphRevision>(resolve(outputDir, 'graph', 'revisions.jsonl'))
 }
 
 function submittedPatchPath(outputDir: string): string {
-  return resolve(outputDir, 'graph', 'patches', 'submitted.jsonl')
+  return resolve(outputDir, 'graph', 'submitted-patches.jsonl')
 }
 
 async function readJsonl<T>(path: string): Promise<T[]> {
@@ -559,10 +562,27 @@ async function readOptionalJsonl<T>(path: string): Promise<T[]> {
     return await readJsonl<T>(path)
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      const legacyPath = legacyRuntimePath(path)
+      if (legacyPath && legacyPath !== path) {
+        try {
+          return await readJsonl<T>(legacyPath)
+        } catch {
+          return []
+        }
+      }
       return []
     }
     throw error
   }
+}
+
+function legacyRuntimePath(path: string): string | undefined {
+  return path
+    .replace('/model/source-inventory.jsonl', '/sources/inventory.jsonl')
+    .replace('/state/rehome-proposals.jsonl', '/proposals/rehome-proposals.jsonl')
+    .replace('/graph/patches.jsonl', '/graph/patches/patches.jsonl')
+    .replace('/graph/submitted-patches.jsonl', '/graph/patches/submitted.jsonl')
+    .replace('/graph/revisions.jsonl', '/graph/revisions/revisions.jsonl')
 }
 
 function graphPatchInput(input: Record<string, unknown>): GraphPatch {
@@ -612,7 +632,6 @@ async function refreshContext(config: ContextProjectConfig): Promise<unknown> {
 }
 
 function listContextResources(project: CompiledContextProject): { resources: Array<Record<string, unknown>> } {
-  const views = new Set(['project'])
   return {
     resources: [
       {
@@ -633,12 +652,18 @@ function listContextResources(project: CompiledContextProject): { resources: Arr
         description: 'Generated providers, tools, skills, agents, plugins, and capabilities.',
         mimeType: 'application/json'
       },
-      ...[...views].map((view) => ({
-        uri: `context://views/${view}`,
-        name: `Context view: ${view}`,
-        description: `Human-readable ${view} context view.`,
+      {
+        uri: 'context://packs/project',
+        name: 'Context pack: project',
+        description: 'Structured project context pack optimized for agent retrieval.',
+        mimeType: 'application/json'
+      },
+      {
+        uri: 'context://debug/views/project',
+        name: 'Debug context view: project',
+        description: 'Fallback human-readable project context view.',
         mimeType: 'text/markdown'
-      }))
+      }
     ]
   }
 }
@@ -648,13 +673,17 @@ async function readContextResource(project: CompiledContextProject, uri: string)
     return resource(uri, 'application/json', await readFile(resolve(project.outputDir, 'manifest.json'), 'utf8'))
   }
   if (uri === 'context://health') {
-    return resource(uri, 'application/json', await readFile(resolve(project.outputDir, 'diagnostics', 'context-health.json'), 'utf8'))
+    return resource(uri, 'application/json', await readFile(resolve(project.outputDir, 'health.json'), 'utf8'))
   }
   if (uri === 'context://runtime-plan') {
     return resource(uri, 'application/json', await readFile(resolve(project.outputDir, 'runtime', 'runtime-plan.json'), 'utf8'))
   }
-  if (uri.startsWith('context://views/')) {
-    const view = uri.slice('context://views/'.length)
+  if (uri.startsWith('context://packs/')) {
+    const view = uri.slice('context://packs/'.length)
+    return resource(uri, 'application/json', await readFile(resolve(project.outputDir, 'packs', 'views', `${view}.json`), 'utf8'))
+  }
+  if (uri.startsWith('context://debug/views/')) {
+    const view = uri.slice('context://debug/views/'.length)
     const result = await getContextView(project, { view })
     return resource(uri, 'text/markdown', result.content)
   }
@@ -679,7 +708,7 @@ async function getContextView(
   try {
     return {
       view,
-      content: await readFile(resolve(project.outputDir, 'views', `${view}.md`), 'utf8')
+      content: await readFile(resolve(project.outputDir, 'debug', 'views', `${view}.md`), 'utf8')
     }
   } catch {
     return {

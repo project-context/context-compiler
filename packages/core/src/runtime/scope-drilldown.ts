@@ -14,9 +14,11 @@ import type {
   GraphExpansion,
   GraphExpansionDirection,
   GraphScopeView,
-  LayeredSourceTrace,
+  LayeredSourceTrace
+} from '../contracts/graph.js'
+import type {
   SourceRef
-} from '../contracts/index.js'
+} from '../contracts/config.js'
 import { loadGraphFiles } from '../graph/index.js'
 
 export interface GraphScopeViewOptions {
@@ -74,7 +76,7 @@ const DEFAULT_EXPANSION_BUDGET = {
   depth: 1
 }
 
-const ENTRYPOINT_TYPES = new Set(['SourceGroup', 'Requirement', 'CodeSymbol', 'APIEndpoint', 'Document', 'Section', 'File'])
+const ENTRYPOINT_TYPES = new Set(['SourceGroup', 'RepositoryGraph', 'SemanticCorpusGraph', 'ApiContractGraph', 'InventoryGraph', 'Requirement', 'CodeSymbol', 'APIEndpoint', 'Document', 'Section', 'File'])
 const PROVENANCE_TYPES = new Set(['Source', 'SourceSnapshot'])
 
 export async function getGraphScopeView(options: GraphScopeViewOptions): Promise<GraphScopeView> {
@@ -412,6 +414,11 @@ function nodeRank(node: ContextNode, scope: ContextGraphScope | undefined, prior
       return -950
     case 'SourceGroup':
       return -900
+    case 'RepositoryGraph':
+    case 'SemanticCorpusGraph':
+    case 'ApiContractGraph':
+    case 'InventoryGraph':
+      return -880
     case 'Requirement':
       return -850
     case 'CodeSymbol':
@@ -584,8 +591,8 @@ function resolveContainingScope(
   const refs = node?.sourceRefs ?? sourceRefsForEvidence(edge?.evidence ?? [])
   const sourceGroupScope = refs
     .flatMap((ref) => scopesForSourceRef(manifest, ref))
-    .filter((scope) => scope.kind === 'source_group')
-    .sort((left, right) => (right.path?.length ?? 0) - (left.path?.length ?? 0))[0]
+    .filter((scope) => scope.kind === 'build_graph' || scope.kind === 'source_group')
+    .sort((left, right) => scopeContainmentRank(right) - scopeContainmentRank(left) || (right.path?.length ?? 0) - (left.path?.length ?? 0))[0]
   if (sourceGroupScope) {
     return sourceGroupScope
   }
@@ -604,9 +611,16 @@ function scopesForSourceRef(manifest: ContextGraphScopeManifest, sourceRef: Sour
   }
   return manifest.scopes.filter((scope) =>
     (scope.kind === 'source_group' && typeof scope.path === 'string' && pathWithin(path, scope.path)) ||
+    (scope.kind === 'build_graph' && typeof scope.path === 'string' && pathWithin(path, scope.path)) ||
     (scope.kind === 'file' && scope.path === path) ||
     (scope.kind === 'content' && scope.path === `${path}#content`)
   )
+}
+
+function scopeContainmentRank(scope: ScopeManifestEntry): number {
+  if (scope.kind === 'build_graph') return 2
+  if (scope.kind === 'source_group') return 1
+  return 0
 }
 
 function scopePath(manifest: ContextGraphScopeManifest, scopeId: string): ContextGraphScope[] {
