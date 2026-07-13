@@ -1,8 +1,1 @@
-examples/
-node_modules/
-dist/
-.context/
-.pnpm-store/
 .idea/
-coverage/
-.DS_Store
