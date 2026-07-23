@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: rustup show
+      - name: Format
+        run: |
+          cargo fmt --all -- --check
+          cargo fmt --manifest-path normalizers/Cargo.toml --all -- --check
+          cargo fmt --manifest-path connectors/Cargo.toml --all -- --check
+      - name: Clippy
+        run: |
+          cargo clippy --workspace --all-targets --all-features -- -D warnings
+          cargo clippy --manifest-path normalizers/Cargo.toml --workspace --all-targets --all-features -- -D warnings
+          cargo clippy --manifest-path connectors/Cargo.toml --workspace --all-targets --all-features -- -D warnings
+      - name: Test
+        run: |
+          cargo test --workspace --all-targets
+          cargo test --manifest-path normalizers/Cargo.toml --workspace --all-targets
+          cargo test --manifest-path connectors/Cargo.toml --workspace --all-targets
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin-web/package-lock.json
+      - run: npm ci
+      - run: npm run generate:api
+      - name: Generated client is current
+        run: git diff --exit-code -- src/generated.ts
+      - run: npm test
+      - run: npm run build
+      - name: Embedded assets are current
+        run: git diff --exit-code -- dist
