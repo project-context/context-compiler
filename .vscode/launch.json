@@ -1,0 +1,525 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug unit tests in library 'context_protocol'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-protocol"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_source'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-source"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'normalizer_public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=normalizer_public_api",
+                    "--package=context-source"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=public_api",
+                    "--package=context-source"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_structure'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-structure"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=public_api",
+                    "--package=context-structure"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_evidence'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-evidence"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=public_api",
+                    "--package=context-evidence"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_fact'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-fact"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=public_api",
+                    "--package=context-fact"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_scope'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-scope"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=public_api",
+                    "--package=context-scope"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_semantic'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-semantic"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'public_api'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=public_api",
+                    "--package=context-semantic"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_workspace'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-workspace"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_config'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-config"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'routing'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=routing",
+                    "--package=context-config"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_admin_backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-admin-backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'context-admin-backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=context-admin-backend",
+                    "--package=context-admin-backend"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'context-admin-backend'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=context-admin-backend",
+                    "--package=context-admin-backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'write_openapi'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=write_openapi",
+                    "--package=context-admin-backend"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'write_openapi'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=write_openapi",
+                    "--package=context-admin-backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'api_smoke'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=api_smoke",
+                    "--package=context-admin-backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'openapi_fixture'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=openapi_fixture",
+                    "--package=context-admin-backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'scope_crosscut'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=scope_crosscut",
+                    "--package=context-admin-backend"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_compiler'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-compiler"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'missing_source'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=missing_source",
+                    "--package=context-compiler"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'normalization_e2e'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=normalization_e2e",
+                    "--package=context-compiler"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'refund_e2e'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=refund_e2e",
+                    "--package=context-compiler"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'stage_execution'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=stage_execution",
+                    "--package=context-compiler"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_processor_markdown'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-processor-markdown"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_processor_typescript'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-processor-typescript"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_query'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-query"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_test_support'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-test-support"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'write-schemas'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=write-schemas",
+                    "--package=context-test-support"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'write-schemas'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=write-schemas",
+                    "--package=context-test-support"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'schema_fixtures'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=schema_fixtures",
+                    "--package=context-test-support"
+                ]
+            }
+        },
+        {
+            "name": "Debug unit tests in library 'context_store_sqlite'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--package=context-store-sqlite"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'source_contract'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=source_contract",
+                    "--package=context-store-sqlite"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'context'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=context",
+                    "--package=context-cli"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'context'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=context",
+                    "--package=context-cli"
+                ]
+            }
+        },
+        {
+            "name": "Debug integration test 'commands'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--test=commands",
+                    "--package=context-cli"
+                ]
+            }
+        },
+        {
+            "name": "Debug executable 'context-mcp'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin=context-mcp",
+                    "--package=context-mcp-server"
+                ]
+            },
+            "args": []
+        },
+        {
+            "name": "Debug unit tests in executable 'context-mcp'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--bin=context-mcp",
+                    "--package=context-mcp-server"
+                ]
+            }
+        }
+    ]
+}

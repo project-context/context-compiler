@@ -1,1 +1,9 @@
 .idea/
+target/
+connectors/target/
+admin-web/node_modules/
+.context/
+*.db
+*.db-shm
+*.db-wal
+*.snap.new

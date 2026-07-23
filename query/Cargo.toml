@@ -1,0 +1,34 @@
+[package]
+name = "context-query"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+context-evidence = { workspace = true }
+context-fact = { workspace = true }
+context-protocol = { workspace = true }
+context-scope = { workspace = true }
+context-semantic = { workspace = true }
+context-source = { workspace = true }
+context-structure = { workspace = true }
+context-workspace = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+context-test-support = { workspace = true }
+insta = { workspace = true }
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+

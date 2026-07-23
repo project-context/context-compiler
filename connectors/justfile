@@ -1,0 +1,15 @@
+set shell := ["zsh", "-cu"]
+
+fmt:
+    cargo fmt --all
+
+lint:
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+test:
+    cargo test --workspace --all-targets
+
+write-schema:
+    cargo run -p agent-source-connector --bin write_schema
+
+check: fmt lint test

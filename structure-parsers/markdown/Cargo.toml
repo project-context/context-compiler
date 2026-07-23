@@ -1,0 +1,22 @@
+[package]
+name = "context-structure-parser-markdown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+context-protocol = { workspace = true }
+context-source = { workspace = true }
+context-structure = { workspace = true }
+pulldown-cmark = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+context-structure-parser-test-support = { workspace = true }
+tokio = { workspace = true }

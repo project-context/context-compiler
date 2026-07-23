@@ -1,0 +1,180 @@
+{
+  "$defs": {
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "FactKind": {
+      "enum": [
+        "business_rule",
+        "document_statement",
+        "code_symbol",
+        "code_condition",
+        "api_operation",
+        "test_case"
+      ],
+      "type": "string"
+    },
+    "Freshness": {
+      "description": "Whether a derived record still matches its dependencies.",
+      "enum": [
+        "current",
+        "stale",
+        "invalid"
+      ],
+      "type": "string"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "ProducerRef": {
+      "description": "Versioned component that produced a derived record.",
+      "properties": {
+        "configHash": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "configHash"
+      ],
+      "type": "object"
+    },
+    "ReviewStatus": {
+      "description": "Human or policy review state. Freshness is intentionally modeled separately.",
+      "enum": [
+        "candidate",
+        "confirmed",
+        "rejected",
+        "orphaned"
+      ],
+      "type": "string"
+    },
+    "RevisionRef": {
+      "description": "Immutable revision of a stable logical entity.",
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "SemanticRelation": {
+      "enum": [
+        "describes",
+        "implements",
+        "exposes_as",
+        "verifies",
+        "constrains",
+        "depends_on",
+        "impacts",
+        "supports",
+        "refutes",
+        "conflicts_with",
+        "similar_to",
+        "supersedes",
+        "deprecates"
+      ],
+      "type": "string"
+    },
+    "Trace": {
+      "description": "Complete provenance for a derived revision.",
+      "properties": {
+        "parents": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "sourceSnapshot",
+        "parents",
+        "producer"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "freshness": {
+      "$ref": "#/$defs/Freshness"
+    },
+    "fromFact": {
+      "$ref": "#/$defs/EntityRef"
+    },
+    "fromKind": {
+      "$ref": "#/$defs/FactKind"
+    },
+    "id": {
+      "type": "string"
+    },
+    "relation": {
+      "$ref": "#/$defs/SemanticRelation"
+    },
+    "reviewStatus": {
+      "$ref": "#/$defs/ReviewStatus"
+    },
+    "toFact": {
+      "$ref": "#/$defs/EntityRef"
+    },
+    "toKind": {
+      "$ref": "#/$defs/FactKind"
+    },
+    "trace": {
+      "$ref": "#/$defs/Trace"
+    }
+  },
+  "required": [
+    "id",
+    "relation",
+    "fromFact",
+    "toFact",
+    "fromKind",
+    "toKind",
+    "reviewStatus",
+    "freshness",
+    "trace"
+  ],
+  "title": "SemanticEdge",
+  "type": "object"
+}

@@ -1,0 +1,24 @@
+[package]
+name = "agent-source-connector-git"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+agent-source-connector = { workspace = true }
+agent-source-connector-local = { path = "../local" }
+gix = { workspace = true }
+kstring = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true }

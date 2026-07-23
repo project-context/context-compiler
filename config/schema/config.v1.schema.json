@@ -1,0 +1,276 @@
+{
+  "$defs": {
+    "NormalizationPolicy": {
+      "properties": {
+        "defaults": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/NormalizationRule"
+          },
+          "type": "array"
+        },
+        "pathOverrides": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PathNormalizationOverride"
+          },
+          "type": "array"
+        },
+        "sourceOverrides": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceNormalizationOverride"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "NormalizationRule": {
+      "properties": {
+        "config": {
+          "default": {}
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "extensions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "mediaTypes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "normalizerId": {
+          "type": "string"
+        },
+        "priority": {
+          "default": 0,
+          "format": "int32",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "normalizerId"
+      ],
+      "type": "object"
+    },
+    "PathNormalizationOverride": {
+      "properties": {
+        "globs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "rule": {
+          "$ref": "#/$defs/NormalizationRule"
+        },
+        "sourceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "globs",
+        "rule"
+      ],
+      "type": "object"
+    },
+    "SourceDefinition": {
+      "properties": {
+        "config": {
+          "default": null
+        },
+        "connectorId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "secretRefs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "connectorId",
+        "displayName"
+      ],
+      "type": "object"
+    },
+    "SourceNormalizationOverride": {
+      "properties": {
+        "rules": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/NormalizationRule"
+          },
+          "type": "array"
+        },
+        "sourceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceId"
+      ],
+      "type": "object"
+    },
+    "StructurePolicy": {
+      "properties": {
+        "routes": {
+          "default": [
+            {
+              "config": {},
+              "extension": "md",
+              "parserId": "markdown-ast"
+            },
+            {
+              "config": {},
+              "extension": "ts",
+              "parserId": "tree-sitter-typescript"
+            },
+            {
+              "config": {},
+              "extension": "tsx",
+              "parserId": "tree-sitter-typescript"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/StructureRoute"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "StructureRoute": {
+      "properties": {
+        "config": {
+          "default": {}
+        },
+        "extension": {
+          "type": "string"
+        },
+        "parserId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "extension",
+        "parserId"
+      ],
+      "type": "object"
+    },
+    "TrashedSourceDefinition": {
+      "description": "A restorable source configuration removed from the active pipeline.",
+      "properties": {
+        "deletedAtMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/SourceDefinition"
+        },
+        "trashId": {
+          "description": "Stable identity for this trash entry. Multiple historical versions of\nthe same source can coexist in the recycle bin.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trashId",
+        "deletedAtMs",
+        "source"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "normalization": {
+      "$ref": "#/$defs/NormalizationPolicy",
+      "default": {
+        "defaults": [],
+        "pathOverrides": [],
+        "sourceOverrides": []
+      }
+    },
+    "schemaVersion": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sourceTrash": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TrashedSourceDefinition"
+      },
+      "type": "array"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceDefinition"
+      },
+      "type": "array"
+    },
+    "structure": {
+      "$ref": "#/$defs/StructurePolicy",
+      "default": {
+        "routes": [
+          {
+            "config": {},
+            "extension": "md",
+            "parserId": "markdown-ast"
+          },
+          {
+            "config": {},
+            "extension": "ts",
+            "parserId": "tree-sitter-typescript"
+          },
+          {
+            "config": {},
+            "extension": "tsx",
+            "parserId": "tree-sitter-typescript"
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schemaVersion"
+  ],
+  "title": "ContextConfig",
+  "type": "object"
+}

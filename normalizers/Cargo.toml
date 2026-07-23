@@ -1,0 +1,49 @@
+[workspace]
+members = [
+    "core",
+    "markdown",
+    "typescript",
+    "html",
+    "text-markdown",
+    "pdf-markdown",
+    "pdf-html",
+    "test-support",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+agent-file-normalizer = { path = "core" }
+agent-file-normalizer-test-support = { path = "test-support" }
+bytes = "1"
+schemars = "1.2.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2.0.17"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+lopdf = "0.43"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+uninlined_format_args = "deny"
+redundant_clone = "deny"
+redundant_closure_for_method_calls = "deny"
+
+[profile.dev]
+debug = "limited"
+
+[profile.release]
+lto = "thin"
+debug = "line-tables-only"

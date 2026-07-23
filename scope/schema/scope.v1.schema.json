@@ -1,0 +1,349 @@
+{
+  "$defs": {
+    "AssignmentPurpose": {
+      "enum": [
+        "applies_to_content",
+        "describes_metadata"
+      ],
+      "type": "string"
+    },
+    "ContextRole": {
+      "enum": [
+        "main",
+        "comparison",
+        "history",
+        "example",
+        "negation",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "EffectiveScope": {
+      "properties": {
+        "conflicts": {
+          "items": {
+            "$ref": "#/$defs/EffectiveScopeConflict"
+          },
+          "type": "array"
+        },
+        "target": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/EffectiveScopeValue"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "target",
+        "values",
+        "conflicts"
+      ],
+      "type": "object"
+    },
+    "EffectiveScopeConflict": {
+      "properties": {
+        "dimension": {
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "$ref": "#/$defs/ScopeRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "dimension",
+        "values"
+      ],
+      "type": "object"
+    },
+    "EffectiveScopeValue": {
+      "properties": {
+        "assignedAt": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "lineagePath": {
+          "description": "Full content lineage from the queried revision to the assignment source.",
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "scopePath": {
+          "description": "Full `belongs_to` path from the assigned Scope to this derived Scope.",
+          "items": {
+            "$ref": "#/$defs/ScopeRef"
+          },
+          "type": "array"
+        },
+        "scopeRef": {
+          "$ref": "#/$defs/ScopeRef"
+        }
+      },
+      "required": [
+        "scopeRef",
+        "assignedAt",
+        "lineagePath",
+        "scopePath"
+      ],
+      "type": "object"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "ProducerRef": {
+      "description": "Versioned component that produced a derived record.",
+      "properties": {
+        "configHash": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "configHash"
+      ],
+      "type": "object"
+    },
+    "Propagation": {
+      "enum": [
+        "inherit",
+        "local_only"
+      ],
+      "type": "string"
+    },
+    "ReviewStatus": {
+      "description": "Human or policy review state. Freshness is intentionally modeled separately.",
+      "enum": [
+        "candidate",
+        "confirmed",
+        "rejected",
+        "orphaned"
+      ],
+      "type": "string"
+    },
+    "RevisionRef": {
+      "description": "Immutable revision of a stable logical entity.",
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "ScopeAssignment": {
+      "properties": {
+        "contextRole": {
+          "$ref": "#/$defs/ContextRole"
+        },
+        "id": {
+          "type": "string"
+        },
+        "propagation": {
+          "$ref": "#/$defs/Propagation"
+        },
+        "purpose": {
+          "$ref": "#/$defs/AssignmentPurpose"
+        },
+        "reviewStatus": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "scopeRef": {
+          "$ref": "#/$defs/ScopeRef"
+        },
+        "target": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "trace": {
+          "$ref": "#/$defs/Trace"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "scopeRef",
+        "purpose",
+        "propagation",
+        "contextRole",
+        "reviewStatus",
+        "trace"
+      ],
+      "type": "object"
+    },
+    "ScopeBlock": {
+      "properties": {
+        "dimension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "reviewStatus": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "scopeRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScopeRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "id",
+        "target",
+        "reviewStatus",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "ScopeRef": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "ScopeRelation": {
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/ScopeRef",
+          "description": "Child endpoint for `belongs_to`."
+        },
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ScopeRelationKind"
+        },
+        "reviewStatus": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "to": {
+          "$ref": "#/$defs/ScopeRef",
+          "description": "Parent endpoint for `belongs_to`."
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to",
+        "kind",
+        "reviewStatus"
+      ],
+      "type": "object"
+    },
+    "ScopeRelationKind": {
+      "enum": [
+        "belongs_to",
+        "owned_by",
+        "valid_in",
+        "depends_on_scope",
+        "similar_to"
+      ],
+      "type": "string"
+    },
+    "Trace": {
+      "description": "Complete provenance for a derived revision.",
+      "properties": {
+        "parents": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "sourceSnapshot",
+        "parents",
+        "producer"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "assignment": {
+      "$ref": "#/$defs/ScopeAssignment"
+    },
+    "block": {
+      "$ref": "#/$defs/ScopeBlock"
+    },
+    "effective": {
+      "$ref": "#/$defs/EffectiveScope"
+    },
+    "relation": {
+      "$ref": "#/$defs/ScopeRelation"
+    }
+  },
+  "required": [
+    "assignment",
+    "block",
+    "relation",
+    "effective"
+  ],
+  "title": "ScopeSchema",
+  "type": "object"
+}

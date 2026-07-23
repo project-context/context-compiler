@@ -1,0 +1,32 @@
+{
+  "$defs": {
+    "StoreMode": {
+      "enum": [
+        "external",
+        "portable"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "schemaVersion": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "storeMode": {
+      "$ref": "#/$defs/StoreMode"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId",
+    "schemaVersion",
+    "storeMode"
+  ],
+  "title": "WorkspaceConfig",
+  "type": "object"
+}

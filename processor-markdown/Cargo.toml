@@ -1,0 +1,27 @@
+[package]
+name = "context-processor-markdown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+context-evidence = { workspace = true }
+context-fact = { workspace = true }
+context-protocol = { workspace = true }
+context-scope = { workspace = true }
+context-source = { workspace = true }
+context-structure = { workspace = true }
+pulldown-cmark = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tokio = { workspace = true }
+

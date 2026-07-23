@@ -1,0 +1,448 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "description": "Opaque, content-addressed artifact locator.",
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri"
+      ],
+      "type": "object"
+    },
+    "BuildResult": {
+      "description": "Uniform change summary returned by every layer builder.",
+      "properties": {
+        "added": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "buildRef": {
+          "type": "string"
+        },
+        "changed": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          },
+          "type": "array"
+        },
+        "stale": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "unchanged": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "buildRef",
+        "added",
+        "changed",
+        "stale",
+        "unchanged",
+        "diagnostics",
+        "dependencies"
+      ],
+      "type": "object"
+    },
+    "Diagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/DiagnosticLevel"
+        },
+        "message": {
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "DiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "Freshness": {
+      "description": "Whether a derived record still matches its dependencies.",
+      "enum": [
+        "current",
+        "stale",
+        "invalid"
+      ],
+      "type": "string"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "Locator": {
+      "description": "Canonical location that can be resolved independently of a workspace projection path.",
+      "oneOf": [
+        {
+          "properties": {
+            "end_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "start_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "file",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "artifact": {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            "end": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "byte_range",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "artifact",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "One-indexed page within an immutable document artifact.",
+          "properties": {
+            "artifact": {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            "page": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "document_page",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "artifact",
+            "page"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "selector": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "external",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ProducerRef": {
+      "description": "Versioned component that produced a derived record.",
+      "properties": {
+        "configHash": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "configHash"
+      ],
+      "type": "object"
+    },
+    "RevisionRef": {
+      "description": "Immutable revision of a stable logical entity.",
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "RunStatus": {
+      "description": "Outcome of a build or extraction run.",
+      "enum": [
+        "completed",
+        "partial",
+        "failed",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "StructureBuildOutput": {
+      "properties": {
+        "build": {
+          "$ref": "#/$defs/StructureBuildRecord"
+        },
+        "result": {
+          "$ref": "#/$defs/BuildResult"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/StructureUnit"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "build",
+        "units",
+        "result"
+      ],
+      "type": "object"
+    },
+    "StructureBuildRecord": {
+      "properties": {
+        "entityRef": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "normalizedSource": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "revisionRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      },
+      "required": [
+        "entityRef",
+        "revisionRef",
+        "sourceSnapshot",
+        "normalizedSource",
+        "producer",
+        "status",
+        "fingerprint"
+      ],
+      "type": "object"
+    },
+    "StructureKind": {
+      "enum": [
+        "document",
+        "heading",
+        "paragraph",
+        "function",
+        "method",
+        "condition",
+        "call"
+      ],
+      "type": "string"
+    },
+    "StructureUnit": {
+      "properties": {
+        "buildRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness"
+        },
+        "kind": {
+          "$ref": "#/$defs/StructureKind"
+        },
+        "label": {
+          "type": "string"
+        },
+        "locator": {
+          "$ref": "#/$defs/Locator"
+        },
+        "revisionRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "stableKey": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "trace": {
+          "$ref": "#/$defs/Trace"
+        }
+      },
+      "required": [
+        "revisionRef",
+        "buildRef",
+        "kind",
+        "stableKey",
+        "label",
+        "locator",
+        "text",
+        "trace",
+        "freshness"
+      ],
+      "type": "object"
+    },
+    "Trace": {
+      "description": "Complete provenance for a derived revision.",
+      "properties": {
+        "parents": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "sourceSnapshot",
+        "parents",
+        "producer"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "output": {
+      "$ref": "#/$defs/StructureBuildOutput"
+    },
+    "unit": {
+      "$ref": "#/$defs/StructureUnit"
+    }
+  },
+  "required": [
+    "unit",
+    "output"
+  ],
+  "title": "StructureSchema",
+  "type": "object"
+}

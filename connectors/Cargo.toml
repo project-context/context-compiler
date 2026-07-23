@@ -1,0 +1,41 @@
+[workspace]
+members = ["core", "local", "git"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+agent-source-connector = { path = "core" }
+globset = "0.4"
+gix = { version = "=0.84.0", default-features = false, features = [
+    "blocking-network-client",
+    "comfort",
+    "max-performance-safe",
+    "sha1",
+    "worktree-mutation",
+] }
+kstring = "=2.0.2"
+schemars = "1.2.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3.23.0"
+thiserror = "2.0.17"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+walkdir = "2.5.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+uninlined_format_args = "deny"
+redundant_clone = "deny"
+redundant_closure_for_method_calls = "deny"

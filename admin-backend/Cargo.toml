@@ -1,0 +1,52 @@
+[package]
+name = "context-admin-backend"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+
+[[bin]]
+name = "context-admin-backend"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+agent-file-normalizer = { workspace = true }
+agent-source-connector = { workspace = true }
+agent-source-connector-git = { workspace = true }
+agent-source-connector-local = { workspace = true }
+axum = { workspace = true }
+bytes = { workspace = true }
+clap = { workspace = true }
+context-compiler = { workspace = true }
+context-config = { workspace = true }
+context-evidence = { workspace = true }
+context-fact = { workspace = true }
+context-protocol = { workspace = true }
+context-query = { workspace = true }
+context-scope = { workspace = true }
+context-semantic = { workspace = true }
+context-source = { workspace = true }
+context-store-sqlite = { workspace = true }
+context-structure = { workspace = true }
+context-workspace = { workspace = true }
+mime_guess = { workspace = true }
+rust-embed = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tower-http = { workspace = true }
+utoipa = { workspace = true }
+utoipa-swagger-ui = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tower = { workspace = true }

@@ -1,0 +1,260 @@
+{
+  "$defs": {
+    "ConnectionTestResult": {
+      "properties": {
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/ConnectorDiagnostic"
+          },
+          "type": "array"
+        },
+        "reachable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reachable",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "ConnectorCapabilities": {
+      "properties": {
+        "authentication": {
+          "type": "boolean"
+        },
+        "incremental": {
+          "type": "boolean"
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "remote": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "local",
+        "remote",
+        "incremental",
+        "authentication"
+      ],
+      "type": "object"
+    },
+    "ConnectorDescriptor": {
+      "properties": {
+        "capabilities": {
+          "$ref": "#/$defs/ConnectorCapabilities"
+        },
+        "configSchema": true,
+        "displayName": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "version",
+        "capabilities",
+        "configSchema"
+      ],
+      "type": "object"
+    },
+    "ConnectorDiagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/ConnectorDiagnosticLevel"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "ConnectorDiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "ConnectorInstanceConfig": {
+      "properties": {
+        "config": {
+          "default": null
+        },
+        "connectorId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "secretRefs": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "connectorId",
+        "displayName"
+      ],
+      "type": "object"
+    },
+    "ConnectorObject": {
+      "properties": {
+        "contentHash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sizeBytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stableKey": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "stableKey",
+        "uri",
+        "title",
+        "mediaType",
+        "sizeBytes"
+      ],
+      "type": "object"
+    },
+    "DiscoveryRequest": {
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DiscoveryResult": {
+      "properties": {
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/ConnectorDiagnostic"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "objects": {
+          "items": {
+            "$ref": "#/$defs/ConnectorObject"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "objects",
+        "diagnostics"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "connection": {
+      "$ref": "#/$defs/ConnectionTestResult"
+    },
+    "descriptor": {
+      "$ref": "#/$defs/ConnectorDescriptor"
+    },
+    "discovery": {
+      "$ref": "#/$defs/DiscoveryResult"
+    },
+    "instance": {
+      "$ref": "#/$defs/ConnectorInstanceConfig"
+    },
+    "object": {
+      "$ref": "#/$defs/ConnectorObject"
+    },
+    "request": {
+      "$ref": "#/$defs/DiscoveryRequest"
+    },
+    "secret": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "descriptor",
+    "instance",
+    "secret",
+    "request",
+    "discovery",
+    "object",
+    "connection"
+  ],
+  "title": "ConnectorProtocolSchema",
+  "type": "object"
+}

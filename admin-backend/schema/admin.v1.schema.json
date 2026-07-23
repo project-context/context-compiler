@@ -1,0 +1,1230 @@
+{
+  "$defs": {
+    "AgentFileProfile": {
+      "properties": {
+        "retrieval": {
+          "$ref": "#/$defs/RetrievalProfile"
+        },
+        "tools": {
+          "$ref": "#/$defs/ToolSupport"
+        }
+      },
+      "required": [
+        "retrieval",
+        "tools"
+      ],
+      "type": "object"
+    },
+    "ArtifactPreview": {
+      "properties": {
+        "characters": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "content": {
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "content",
+        "truncated",
+        "characters"
+      ],
+      "type": "object"
+    },
+    "ArtifactPreviewRequest": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "maxChars": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "artifact"
+      ],
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "description": "Opaque, content-addressed artifact locator.",
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri"
+      ],
+      "type": "object"
+    },
+    "BuildEvent": {
+      "properties": {
+        "data": true,
+        "diagnostic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Diagnostic"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "jobId": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/BuildEventKind"
+        },
+        "message": {
+          "type": "string"
+        },
+        "sequence": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stage": {
+          "$ref": "#/$defs/BuildStage"
+        },
+        "timestampMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "jobId",
+        "workspaceId",
+        "timestampMs",
+        "kind",
+        "stage",
+        "message"
+      ],
+      "type": "object"
+    },
+    "BuildEventKind": {
+      "enum": [
+        "status",
+        "progress",
+        "diagnostic",
+        "result"
+      ],
+      "type": "string"
+    },
+    "BuildJob": {
+      "properties": {
+        "createdAtMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "finishedAtMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "request": {
+          "$ref": "#/$defs/PipelineRunRequest",
+          "default": {
+            "fromStage": "capture",
+            "full": false,
+            "resumeProcessed": null,
+            "resumeTotal": null,
+            "sourceIds": [],
+            "toStage": "project"
+          }
+        },
+        "startedAtMs": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/BuildJobStatus"
+        },
+        "summary": true,
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId",
+        "status",
+        "createdAtMs"
+      ],
+      "type": "object"
+    },
+    "BuildJobStatus": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "succeeded_with_warnings",
+        "partial",
+        "failed",
+        "cancelling",
+        "cancelled",
+        "interrupted"
+      ],
+      "type": "string"
+    },
+    "BuildStage": {
+      "enum": [
+        "queued",
+        "discover",
+        "capture",
+        "normalize",
+        "structure",
+        "evidence",
+        "fact",
+        "scope",
+        "semantic",
+        "project",
+        "complete"
+      ],
+      "type": "string"
+    },
+    "Diagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/DiagnosticLevel"
+        },
+        "message": {
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "DiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "Freshness": {
+      "description": "Whether a derived record still matches its dependencies.",
+      "enum": [
+        "current",
+        "stale",
+        "invalid"
+      ],
+      "type": "string"
+    },
+    "InputMatcher": {
+      "properties": {
+        "extensions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "format": {
+          "type": "string"
+        },
+        "magicPrefixes": {
+          "default": [],
+          "items": {
+            "items": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "mediaTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "mediaTypes",
+        "extensions"
+      ],
+      "type": "object"
+    },
+    "JobTaskResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/BuildJobStatus"
+        },
+        "summary": true
+      },
+      "required": [
+        "status",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "LayerQuery": {
+      "properties": {
+        "allRevisions": {
+          "default": false,
+          "type": "boolean"
+        },
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "freshness": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Freshness"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "format": "uint16",
+          "maximum": 65535,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reviewStatus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReviewStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceEntityId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sourceRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "NormalizationDiagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/NormalizationDiagnosticLevel"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OriginalLocator"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "NormalizationDiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "NormalizationPreview": {
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/NormalizationDiagnostic"
+          },
+          "type": "array"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "normalizerId": {
+          "type": "string"
+        },
+        "outputFormat": {
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "normalizerId",
+        "outputFormat",
+        "mediaType",
+        "extension",
+        "content",
+        "truncated",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "NormalizationPreviewRequest": {
+      "properties": {
+        "maxChars": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sourceId": {
+          "type": "string"
+        },
+        "stableKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceId",
+        "stableKey"
+      ],
+      "type": "object"
+    },
+    "NormalizationResolveRequest": {
+      "properties": {
+        "extension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mediaType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "sourceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceId",
+        "path"
+      ],
+      "type": "object"
+    },
+    "NormalizedFormat": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentFileProfile"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "mediaType",
+        "extension",
+        "agent"
+      ],
+      "type": "object"
+    },
+    "NormalizerCapabilities": {
+      "properties": {
+        "companions": {
+          "type": "boolean"
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "locatorKinds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "randomAccess": {
+          "type": "boolean"
+        },
+        "streaming": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deterministic",
+        "streaming",
+        "randomAccess",
+        "companions",
+        "locatorKinds"
+      ],
+      "type": "object"
+    },
+    "NormalizerCatalogEntry": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mapping": {
+          "$ref": "#/$defs/NormalizerDescriptor"
+        },
+        "processorInstalled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mapping",
+        "enabled",
+        "processorInstalled"
+      ],
+      "type": "object"
+    },
+    "NormalizerDescriptor": {
+      "properties": {
+        "capabilities": {
+          "$ref": "#/$defs/NormalizerCapabilities"
+        },
+        "defaultPriority": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "implementationVersion": {
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputMatcher"
+          },
+          "type": "array"
+        },
+        "output": {
+          "$ref": "#/$defs/NormalizedFormat"
+        },
+        "protocolVersion": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "id",
+        "displayName",
+        "implementationVersion",
+        "inputs",
+        "output",
+        "capabilities",
+        "defaultPriority"
+      ],
+      "type": "object"
+    },
+    "OriginalLocator": {
+      "oneOf": [
+        {
+          "properties": {
+            "end_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "start_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "file",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "end": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "byte_range",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "page": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "document_page",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri",
+            "page"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PipelineRunRequest": {
+      "properties": {
+        "fromStage": {
+          "$ref": "#/$defs/BuildStage",
+          "default": "capture"
+        },
+        "full": {
+          "default": false,
+          "type": "boolean"
+        },
+        "resumeProcessed": {
+          "default": null,
+          "description": "Last durably confirmed progress from a cancelled or interrupted run.\n\nA resumed normalization run still validates the existing artifacts, but\nits user-facing progress must never move backwards while doing so.",
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "resumeTotal": {
+          "default": null,
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sourceIds": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "toStage": {
+          "$ref": "#/$defs/BuildStage",
+          "default": "project"
+        }
+      },
+      "type": "object"
+    },
+    "RegisteredWorkspace": {
+      "properties": {
+        "displayName": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "displayName",
+        "root"
+      ],
+      "type": "object"
+    },
+    "RetrievalProfile": {
+      "enum": [
+        "prose",
+        "rich_document",
+        "source_code",
+        "tabular",
+        "structured_data"
+      ],
+      "type": "string"
+    },
+    "ReviewCommand": {
+      "properties": {
+        "decisions": {
+          "items": {
+            "$ref": "#/$defs/ReviewDecision"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "decisions"
+      ],
+      "type": "object"
+    },
+    "ReviewDecision": {
+      "properties": {
+        "expectedStatus": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "id": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "subject": {
+          "$ref": "#/$defs/ReviewSubject"
+        }
+      },
+      "required": [
+        "subject",
+        "id",
+        "expectedStatus",
+        "status",
+        "rationale"
+      ],
+      "type": "object"
+    },
+    "ReviewStatus": {
+      "description": "Human or policy review state. Freshness is intentionally modeled separately.",
+      "enum": [
+        "candidate",
+        "confirmed",
+        "rejected",
+        "orphaned"
+      ],
+      "type": "string"
+    },
+    "ReviewSubject": {
+      "enum": [
+        "scope_assignment",
+        "scope_block",
+        "scope_relation",
+        "semantic_edge"
+      ],
+      "type": "string"
+    },
+    "StructureConfigView": {
+      "properties": {
+        "etag": {
+          "type": "string"
+        },
+        "families": {
+          "items": {
+            "$ref": "#/$defs/StructureFileFamilyView"
+          },
+          "type": "array"
+        },
+        "policy": {
+          "$ref": "#/$defs/StructurePolicy"
+        }
+      },
+      "required": [
+        "etag",
+        "policy",
+        "families"
+      ],
+      "type": "object"
+    },
+    "StructureFileFamily": {
+      "enum": [
+        "code",
+        "document",
+        "markup_style",
+        "structured_data",
+        "tabular",
+        "rich_document",
+        "other"
+      ],
+      "type": "string"
+    },
+    "StructureFileFamilyView": {
+      "properties": {
+        "family": {
+          "$ref": "#/$defs/StructureFileFamily"
+        },
+        "fileCount": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "formatCount": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "formats": {
+          "items": {
+            "$ref": "#/$defs/StructureFormatView"
+          },
+          "type": "array"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "family",
+        "label",
+        "fileCount",
+        "formatCount",
+        "formats"
+      ],
+      "type": "object"
+    },
+    "StructureFormatView": {
+      "properties": {
+        "compatibleParsers": {
+          "items": {
+            "$ref": "#/$defs/StructureParserDescriptor"
+          },
+          "type": "array"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "fileCount": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "format": {
+          "type": "string"
+        },
+        "selectedParserId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "extension",
+        "format",
+        "fileCount",
+        "compatibleParsers",
+        "status"
+      ],
+      "type": "object"
+    },
+    "StructureInputMatcher": {
+      "properties": {
+        "extensions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "families": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StructureFileFamily"
+          },
+          "type": "array"
+        },
+        "formats": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mediaTypes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "StructureParserCapabilities": {
+      "properties": {
+        "byteLocators": {
+          "type": "boolean"
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "incremental": {
+          "type": "boolean"
+        },
+        "relations": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deterministic",
+        "relations",
+        "byteLocators",
+        "incremental"
+      ],
+      "type": "object"
+    },
+    "StructureParserCatalogEntry": {
+      "properties": {
+        "configSchema": true,
+        "descriptor": {
+          "$ref": "#/$defs/StructureParserDescriptor"
+        },
+        "installed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "descriptor",
+        "configSchema",
+        "installed"
+      ],
+      "type": "object"
+    },
+    "StructureParserDescriptor": {
+      "properties": {
+        "capabilities": {
+          "$ref": "#/$defs/StructureParserCapabilities"
+        },
+        "defaultPriority": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "implementationVersion": {
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/StructureInputMatcher"
+          },
+          "type": "array"
+        },
+        "protocolVersion": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "id",
+        "displayName",
+        "implementationVersion",
+        "inputs",
+        "capabilities",
+        "defaultPriority"
+      ],
+      "type": "object"
+    },
+    "StructurePolicy": {
+      "properties": {
+        "routes": {
+          "default": [
+            {
+              "config": {},
+              "extension": "md",
+              "parserId": "markdown-ast"
+            },
+            {
+              "config": {},
+              "extension": "ts",
+              "parserId": "tree-sitter-typescript"
+            },
+            {
+              "config": {},
+              "extension": "tsx",
+              "parserId": "tree-sitter-typescript"
+            }
+          ],
+          "items": {
+            "$ref": "#/$defs/StructureRoute"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "StructureRoute": {
+      "properties": {
+        "config": {
+          "default": {}
+        },
+        "extension": {
+          "type": "string"
+        },
+        "parserId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "extension",
+        "parserId"
+      ],
+      "type": "object"
+    },
+    "ToolSupport": {
+      "properties": {
+        "grep": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        },
+        "lineOriented": {
+          "type": "boolean"
+        },
+        "read": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        },
+        "sed": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        }
+      },
+      "required": [
+        "read",
+        "grep",
+        "sed",
+        "lineOriented"
+      ],
+      "type": "object"
+    },
+    "ToolSupportLevel": {
+      "enum": [
+        "first_class",
+        "compatible",
+        "not_recommended"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "artifact_preview": {
+      "$ref": "#/$defs/ArtifactPreview"
+    },
+    "artifact_preview_request": {
+      "$ref": "#/$defs/ArtifactPreviewRequest"
+    },
+    "event": {
+      "$ref": "#/$defs/BuildEvent"
+    },
+    "job": {
+      "$ref": "#/$defs/BuildJob"
+    },
+    "job_result": {
+      "$ref": "#/$defs/JobTaskResult"
+    },
+    "layer_query": {
+      "$ref": "#/$defs/LayerQuery"
+    },
+    "normalizer": {
+      "$ref": "#/$defs/NormalizerCatalogEntry"
+    },
+    "preview": {
+      "$ref": "#/$defs/NormalizationPreview"
+    },
+    "preview_request": {
+      "$ref": "#/$defs/NormalizationPreviewRequest"
+    },
+    "resolve": {
+      "$ref": "#/$defs/NormalizationResolveRequest"
+    },
+    "review": {
+      "$ref": "#/$defs/ReviewCommand"
+    },
+    "structure_config": {
+      "$ref": "#/$defs/StructureConfigView"
+    },
+    "structure_parser": {
+      "$ref": "#/$defs/StructureParserCatalogEntry"
+    },
+    "workspace": {
+      "$ref": "#/$defs/RegisteredWorkspace"
+    }
+  },
+  "required": [
+    "workspace",
+    "job",
+    "job_result",
+    "event",
+    "layer_query",
+    "normalizer",
+    "preview_request",
+    "preview",
+    "artifact_preview_request",
+    "artifact_preview",
+    "resolve",
+    "review",
+    "structure_config",
+    "structure_parser"
+  ],
+  "title": "AdminSchema",
+  "type": "object"
+}

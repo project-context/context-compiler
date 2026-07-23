@@ -1,0 +1,26 @@
+---
+source: compiler/tests/refund_e2e.rs
+expression: view.markdown
+---
+# Context View
+
+## BusinessRule
+
+# 退款规则
+
+
+- Evidence `evidence:markdown:structure:markdown-ast:normalized:source:file:docs/refund.md:markdown-to-markdown:退款规则` at `{"type":"byte_range","artifact":{"uri":"artifact:sha256:378812f71ba1eb184d10843d4bad56f1b6144d9252266129239e58b39fedcefd"},"start":0,"end":15}`
+
+## BusinessRule
+
+退款必须在 7 天内完成。
+
+
+- Evidence `evidence:markdown:structure:markdown-ast:normalized:source:file:docs/refund.md:markdown-to-markdown:退款规则/paragraph` at `{"type":"byte_range","artifact":{"uri":"artifact:sha256:378812f71ba1eb184d10843d4bad56f1b6144d9252266129239e58b39fedcefd"},"start":16,"end":50}`
+
+## BusinessRule
+
+退款由原支付渠道退回。
+
+
+- Evidence `evidence:markdown:structure:markdown-ast:normalized:source:file:docs/refund.md:markdown-to-markdown:退款规则/地区-a/paragraph` at `{"type":"byte_range","artifact":{"uri":"artifact:sha256:378812f71ba1eb184d10843d4bad56f1b6144d9252266129239e58b39fedcefd"},"start":64,"end":98}`

@@ -1,0 +1,628 @@
+{
+  "$defs": {
+    "AgentFileProfile": {
+      "properties": {
+        "retrieval": {
+          "$ref": "#/$defs/RetrievalProfile"
+        },
+        "tools": {
+          "$ref": "#/$defs/ToolSupport"
+        }
+      },
+      "required": [
+        "retrieval",
+        "tools"
+      ],
+      "type": "object"
+    },
+    "ArtifactRole": {
+      "enum": [
+        "primary",
+        "companion",
+        "locator_map"
+      ],
+      "type": "string"
+    },
+    "InputMatcher": {
+      "properties": {
+        "extensions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "format": {
+          "type": "string"
+        },
+        "magicPrefixes": {
+          "default": [],
+          "items": {
+            "items": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "mediaTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "mediaTypes",
+        "extensions"
+      ],
+      "type": "object"
+    },
+    "NormalizationDiagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/NormalizationDiagnosticLevel"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OriginalLocator"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "NormalizationDiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "NormalizationProgress": {
+      "properties": {
+        "completed": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "message": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "phase": {
+          "type": "string"
+        },
+        "total": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "unit": {
+          "$ref": "#/$defs/WorkUnit"
+        }
+      },
+      "required": [
+        "phase",
+        "completed",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "NormalizationReport": {
+      "properties": {
+        "companions": {
+          "items": {
+            "$ref": "#/$defs/ProducedArtifact"
+          },
+          "type": "array"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/NormalizationDiagnostic"
+          },
+          "type": "array"
+        },
+        "locatorMap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProducedArtifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "primary": {
+          "$ref": "#/$defs/ProducedArtifact"
+        },
+        "statistics": {
+          "$ref": "#/$defs/NormalizationStatistics"
+        }
+      },
+      "required": [
+        "primary",
+        "companions",
+        "diagnostics",
+        "statistics"
+      ],
+      "type": "object"
+    },
+    "NormalizationStatistics": {
+      "properties": {
+        "inputBytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "outputBytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "processedUnits": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "totalUnits": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "inputBytes",
+        "outputBytes",
+        "processedUnits",
+        "totalUnits"
+      ],
+      "type": "object"
+    },
+    "NormalizedFormat": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentFileProfile"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "mediaType",
+        "extension",
+        "agent"
+      ],
+      "type": "object"
+    },
+    "NormalizerCapabilities": {
+      "properties": {
+        "companions": {
+          "type": "boolean"
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "locatorKinds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "randomAccess": {
+          "type": "boolean"
+        },
+        "streaming": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deterministic",
+        "streaming",
+        "randomAccess",
+        "companions",
+        "locatorKinds"
+      ],
+      "type": "object"
+    },
+    "NormalizerDescriptor": {
+      "properties": {
+        "capabilities": {
+          "$ref": "#/$defs/NormalizerCapabilities"
+        },
+        "defaultPriority": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "implementationVersion": {
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputMatcher"
+          },
+          "type": "array"
+        },
+        "output": {
+          "$ref": "#/$defs/NormalizedFormat"
+        },
+        "protocolVersion": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "id",
+        "displayName",
+        "implementationVersion",
+        "inputs",
+        "output",
+        "capabilities",
+        "defaultPriority"
+      ],
+      "type": "object"
+    },
+    "NormalizerError": {
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/NormalizerErrorCategory"
+        },
+        "code": {
+          "type": "string"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OriginalLocator"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable"
+      ],
+      "type": "object"
+    },
+    "NormalizerErrorCategory": {
+      "enum": [
+        "configuration",
+        "input",
+        "requirement",
+        "resource",
+        "cancellation",
+        "output",
+        "internal"
+      ],
+      "type": "string"
+    },
+    "OriginalLocator": {
+      "oneOf": [
+        {
+          "properties": {
+            "end_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "start_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "file",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "end": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "byte_range",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "page": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "document_page",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri",
+            "page"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ProbeResult": {
+      "properties": {
+        "confidence": {
+          "format": "uint8",
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "detectedFormat": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detectedMediaType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/NormalizationDiagnostic"
+          },
+          "type": "array"
+        },
+        "supported": {
+          "type": "boolean"
+        },
+        "work": {
+          "$ref": "#/$defs/WorkEstimate"
+        }
+      },
+      "required": [
+        "supported",
+        "confidence",
+        "work",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "ProducedArtifact": {
+      "properties": {
+        "contentHash": {
+          "type": "string"
+        },
+        "extension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/ArtifactRole"
+        },
+        "sizeBytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri",
+        "role",
+        "mediaType",
+        "contentHash",
+        "sizeBytes"
+      ],
+      "type": "object"
+    },
+    "RetrievalProfile": {
+      "enum": [
+        "prose",
+        "rich_document",
+        "source_code",
+        "tabular",
+        "structured_data"
+      ],
+      "type": "string"
+    },
+    "ToolSupport": {
+      "properties": {
+        "grep": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        },
+        "lineOriented": {
+          "type": "boolean"
+        },
+        "read": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        },
+        "sed": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        }
+      },
+      "required": [
+        "read",
+        "grep",
+        "sed",
+        "lineOriented"
+      ],
+      "type": "object"
+    },
+    "ToolSupportLevel": {
+      "enum": [
+        "first_class",
+        "compatible",
+        "not_recommended"
+      ],
+      "type": "string"
+    },
+    "WorkEstimate": {
+      "properties": {
+        "total": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "unit": {
+          "$ref": "#/$defs/WorkUnit"
+        }
+      },
+      "required": [
+        "unit"
+      ],
+      "type": "object"
+    },
+    "WorkUnit": {
+      "enum": [
+        "bytes",
+        "pages",
+        "slides",
+        "sheets",
+        "rows",
+        "entries",
+        "items",
+        "files"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "descriptor": {
+      "$ref": "#/$defs/NormalizerDescriptor"
+    },
+    "diagnostic": {
+      "$ref": "#/$defs/NormalizationDiagnostic"
+    },
+    "error": {
+      "$ref": "#/$defs/NormalizerError"
+    },
+    "probe": {
+      "$ref": "#/$defs/ProbeResult"
+    },
+    "progress": {
+      "$ref": "#/$defs/NormalizationProgress"
+    },
+    "report": {
+      "$ref": "#/$defs/NormalizationReport"
+    }
+  },
+  "required": [
+    "descriptor",
+    "probe",
+    "report",
+    "progress",
+    "diagnostic",
+    "error"
+  ],
+  "title": "NormalizerProtocolSchema",
+  "type": "object"
+}

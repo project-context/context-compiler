@@ -64,6 +64,8 @@ Source 可以来自本地文件、Git 仓库、飞书、钉钉、腾讯文档、
 
 Source 层不直接抽业务结论，但可以产生 Scope 线索。
 
+Source 类型不能使用封闭枚举表达。输入格式和标准格式都使用可扩展的 `FormatId`；`.docx`、`.pdf`、`.html` 只是发现和路由信号，真正的 A→B 转换能力由 `normalizers/` 独立 Workspace 中的平台无关 `Normalizer` 实现提供。
+
 ## NormalizedSource
 
 `NormalizedSource` 是 Source 层必须产出的标准化结果。
@@ -119,6 +121,23 @@ EvidenceRef
   -> SourceSnapshot
   -> SourceRecord
 ```
+
+`NormalizedSource` 还必须明确记录：
+
+```txt
+format
+mediaType
+extension
+agentFileProfile
+normalizerId
+normalizer ProducerRef
+primary NormalizedArtifact
+companions NormalizedArtifact[]
+locatorMap NormalizedArtifact?
+sourceSnapshot
+```
+
+`NormalizedSource` 不保存正文。`NormalizedArtifact` 保存 content-addressed `ArtifactRef`、角色、media type、格式、扩展名、hash 和字节数；正文只存在 Artifact Repository。同一个 SourceSnapshot 可以因为不同 Normalizer 路线产生不同的标准化逻辑身份。标准化身份必须包含 Normalizer ID，防止 `pdf→html` 与 `pdf→markdown` 错误复用 revision。
 
 `.context/sources` 就是 `SourceRecord + SourceSnapshot + NormalizedSource` 的文件化投影。
 

@@ -1,0 +1,189 @@
+{
+  "$defs": {
+    "BuildOptions": {
+      "properties": {
+        "full": {
+          "type": "boolean"
+        },
+        "noAgent": {
+          "type": "boolean"
+        },
+        "portable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "full",
+        "portable",
+        "noAgent"
+      ],
+      "type": "object"
+    },
+    "CompileResult": {
+      "properties": {
+        "diagnostics": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "evidence": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "facts": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "semanticEdges": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "staleRevisions": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "structures": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "skipped",
+        "structures",
+        "evidence",
+        "facts",
+        "semanticEdges",
+        "staleRevisions",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "CompileSummary": {
+      "properties": {
+        "built": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "diagnostics": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "failedSources": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "semanticEdges": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "skipped": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/CompileResult"
+          },
+          "type": "array"
+        },
+        "staleRevisions": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sources",
+        "built",
+        "skipped",
+        "failedSources",
+        "facts",
+        "semanticEdges",
+        "staleRevisions",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "RevisionRef": {
+      "description": "Immutable revision of a stable logical entity.",
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "revision"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "options": {
+      "$ref": "#/$defs/BuildOptions"
+    },
+    "summary": {
+      "$ref": "#/$defs/CompileSummary"
+    }
+  },
+  "required": [
+    "options",
+    "summary"
+  ],
+  "title": "CompilerSchema",
+  "type": "object"
+}

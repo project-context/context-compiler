@@ -1,8 +1,6 @@
 # Context Compiler 文档
 
-本文档定义目标形态，不绑定具体实现语言或目录结构。
-
-当前实现可能采用 Rust + TypeScript，也可能继续调整工程边界。因此这里不再描述 `packages/`、`specs/`、`evals/` 之类的包划分，只记录稳定架构。
+本文档定义稳定的目标形态，理论模型不依赖实现语言。当前工程实现已选择纯 Rust 多 crate Workspace；实现映射见 [Rust Workspace 实现映射](./11-rust-workspace.md)。
 
 ## 目标
 
@@ -33,7 +31,8 @@ context()
 
 - 低层不强行统一内部结构：Markdown、PDF、Excel、代码、OpenAPI 的结构、证据、事实可以各自实现。
 - 低层必须统一可引用能力：SourceRef、StructureRef、EvidenceRef、FactRef 必须能追溯、失效、展开。
-- Source 层必须生成 `NormalizedSource`：源码尽量原样保留，PDF/PPT/DOC/图片/Excel 等生成 Markdown、HTML 或表格投影。
+- Source 层通过可注册的 `SourceNormalizer` 生成 `NormalizedSource`：源码尽量原样保留，PDF/PPT/DOC/图片/Excel 等可以生成 Markdown、HTML 或表格投影。
+- 扩展名只负责选择已注册的 A→B Normalizer；Structure Parser 按标准化产物的格式、MIME、后缀与 Agent profile 匹配，不读取原始物理路径。
 - Scope 是横切层：它切 Source、Structure、Evidence、Fact 这些具体项。
 - Scope Graph 由 `ScopeAssignment` 和 `ScopeRelation` 组成。
 - Dimension 不是层名，而是 Scope 的分类轴，例如系统、服务、团队、版本、业务能力。
@@ -57,6 +56,10 @@ context()
 10. [存储决策](./08-storage-decision.md)
 11. [Context View 示例](./09-context-view-example.md)
 12. [架构决策](./decisions.md)
+13. [Rust Workspace 实现映射](./11-rust-workspace.md)
+14. [Source Normalizer 扩展系统](./12-source-normalizers.md)
+15. [分层管理端](./13-admin-control-plane.md)
+
 
 ## 一句话边界
 

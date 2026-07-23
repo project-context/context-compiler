@@ -1,0 +1,342 @@
+{
+  "$defs": {
+    "BuildResult": {
+      "description": "Uniform change summary returned by every layer builder.",
+      "properties": {
+        "added": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "buildRef": {
+          "type": "string"
+        },
+        "changed": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          },
+          "type": "array"
+        },
+        "stale": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "unchanged": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "buildRef",
+        "added",
+        "changed",
+        "stale",
+        "unchanged",
+        "diagnostics",
+        "dependencies"
+      ],
+      "type": "object"
+    },
+    "Diagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/DiagnosticLevel"
+        },
+        "message": {
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "DiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "EvidenceRole": {
+      "enum": [
+        "supports",
+        "refutes",
+        "qualifies"
+      ],
+      "type": "string"
+    },
+    "FactBuildOutput": {
+      "properties": {
+        "build": {
+          "$ref": "#/$defs/FactBuildRecord"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/FactRevision"
+          },
+          "type": "array"
+        },
+        "result": {
+          "$ref": "#/$defs/BuildResult"
+        }
+      },
+      "required": [
+        "build",
+        "facts",
+        "result"
+      ],
+      "type": "object"
+    },
+    "FactBuildRecord": {
+      "properties": {
+        "entityRef": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "revisionRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "status": {
+          "$ref": "#/$defs/RunStatus"
+        }
+      },
+      "required": [
+        "entityRef",
+        "revisionRef",
+        "producer",
+        "status",
+        "fingerprint"
+      ],
+      "type": "object"
+    },
+    "FactEvidenceLink": {
+      "properties": {
+        "evidenceRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "role": {
+          "$ref": "#/$defs/EvidenceRole"
+        }
+      },
+      "required": [
+        "evidenceRef",
+        "role"
+      ],
+      "type": "object"
+    },
+    "FactKind": {
+      "enum": [
+        "business_rule",
+        "document_statement",
+        "code_symbol",
+        "code_condition",
+        "api_operation",
+        "test_case"
+      ],
+      "type": "string"
+    },
+    "FactRevision": {
+      "properties": {
+        "buildRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "data": {
+          "default": null
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/FactEvidenceLink"
+          },
+          "type": "array"
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness"
+        },
+        "kind": {
+          "$ref": "#/$defs/FactKind"
+        },
+        "revisionRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "stableKey": {
+          "type": "string"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "trace": {
+          "$ref": "#/$defs/Trace"
+        }
+      },
+      "required": [
+        "revisionRef",
+        "buildRef",
+        "kind",
+        "stableKey",
+        "statement",
+        "evidence",
+        "trace",
+        "freshness"
+      ],
+      "type": "object"
+    },
+    "Freshness": {
+      "description": "Whether a derived record still matches its dependencies.",
+      "enum": [
+        "current",
+        "stale",
+        "invalid"
+      ],
+      "type": "string"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "ProducerRef": {
+      "description": "Versioned component that produced a derived record.",
+      "properties": {
+        "configHash": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "configHash"
+      ],
+      "type": "object"
+    },
+    "RevisionRef": {
+      "description": "Immutable revision of a stable logical entity.",
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "RunStatus": {
+      "description": "Outcome of a build or extraction run.",
+      "enum": [
+        "completed",
+        "partial",
+        "failed",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "Trace": {
+      "description": "Complete provenance for a derived revision.",
+      "properties": {
+        "parents": {
+          "items": {
+            "$ref": "#/$defs/RevisionRef"
+          },
+          "type": "array"
+        },
+        "producer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "sourceSnapshot",
+        "parents",
+        "producer"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "output": {
+      "$ref": "#/$defs/FactBuildOutput"
+    },
+    "record": {
+      "$ref": "#/$defs/FactRevision"
+    }
+  },
+  "required": [
+    "record",
+    "output"
+  ],
+  "title": "FactSchema",
+  "type": "object"
+}

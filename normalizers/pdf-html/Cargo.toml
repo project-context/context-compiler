@@ -1,0 +1,19 @@
+[package]
+name = "agent-file-normalizer-pdf-html"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+agent-file-normalizer = { workspace = true }
+lopdf = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+

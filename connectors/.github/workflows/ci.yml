@@ -1,0 +1,19 @@
+name: connectors
+
+on:
+  push:
+    paths: ["connectors/**"]
+  pull_request:
+    paths: ["connectors/**"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: connectors
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --all-targets

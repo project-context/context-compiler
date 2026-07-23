@@ -1,15 +1,15 @@
 # 架构决策
 
-## 1. 先文档，不定包结构
+## 1. 采用 Rust 虚拟 Cargo Workspace
 
-当前不保留 `packages/`、`specs/`、`evals/`、`examples/` 作为目标结构。
+当前采用 Rust 1.93.0、Edition 2024 的虚拟 Cargo Workspace，每个稳定层和可替换实现使用独立 crate。
 
 原因：
 
 ```txt
-实现语言可能采用 Rust + TypeScript。
-工程边界还没稳定。
-过早定义 package 会限制后续设计。
+Rust 适合表达稳定协议、对象安全 trait、增量编排和单文件 CLI/MCP 分发。
+独立 crate 可以强制单向依赖，并让每层和每种转换单独测试。
+第一版不引入 TypeScript 运行时代码。
 ```
 
 ## 2. Scope 不是 Dimension
@@ -264,7 +264,20 @@ Agent 可读 cleaned sources
 
 第一版不上图数据库、独立向量数据库、分布式存储或独立搜索服务。
 
-## 17. ScopeAssignment 是范围归属推理系统
+## 17. Source 标准化采用配置路由 + 独立 Normalizer crate
+
+Source 输入类型不使用封闭枚举。扩展名映射由仓库根目录的 `context.normalizers.json` 配置，但配置只能引用已注册的 `normalizerId`。
+
+```txt
+input extension
+  -> registered SourceNormalizer
+  -> NormalizedSource FormatId
+  -> ProcessorRegistry
+```
+
+每一种 A→B 转换使用 `normalizers/` 独立 Workspace 内的单独 crate，实现、依赖和测试互不影响。该 Workspace 不依赖 Context Compiler，可以整体迁移到独立仓库；`context-source` 只是宿主适配层。Normalizer 接收原始 bytes，支持未来的 PDF、DOCX、图片等二进制转换。后续 Processor 按标准化输出格式选择，因此 `txt→markdown` 可以直接复用 Markdown Processor，`pdf→html` 可以复用未来的 HTML Processor。
+
+## 18. ScopeAssignment 是范围归属推理系统
 
 ScopeAssignment 构建不是简单分类器，也不是纯 LLM 抽取。
 

@@ -1,0 +1,688 @@
+{
+  "$defs": {
+    "AccessStatus": {
+      "description": "Current accessibility of a registered source.",
+      "enum": [
+        "available",
+        "missing",
+        "permission_denied",
+        "unreadable"
+      ],
+      "type": "string"
+    },
+    "AgentFileProfile": {
+      "properties": {
+        "retrieval": {
+          "$ref": "#/$defs/RetrievalProfile"
+        },
+        "tools": {
+          "$ref": "#/$defs/ToolSupport"
+        }
+      },
+      "required": [
+        "retrieval",
+        "tools"
+      ],
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "description": "Opaque, content-addressed artifact locator.",
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "uri"
+      ],
+      "type": "object"
+    },
+    "ArtifactRole": {
+      "enum": [
+        "primary",
+        "companion",
+        "locator_map"
+      ],
+      "type": "string"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "Freshness": {
+      "description": "Whether a derived record still matches its dependencies.",
+      "enum": [
+        "current",
+        "stale",
+        "invalid"
+      ],
+      "type": "string"
+    },
+    "InputMatcher": {
+      "properties": {
+        "extensions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "format": {
+          "type": "string"
+        },
+        "magicPrefixes": {
+          "default": [],
+          "items": {
+            "items": {
+              "format": "uint8",
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "mediaTypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "mediaTypes",
+        "extensions"
+      ],
+      "type": "object"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "NormalizationConfig": {
+      "properties": {
+        "rules": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/NormalizationRule"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "NormalizationDiagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/NormalizationDiagnosticLevel"
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OriginalLocator"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "NormalizationDiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "NormalizationRule": {
+      "properties": {
+        "config": {
+          "default": {}
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "extensions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "normalizerId": {
+          "type": "string"
+        },
+        "priority": {
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "normalizerId"
+      ],
+      "type": "object"
+    },
+    "NormalizedArtifact": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "contentHash": {
+          "type": "string"
+        },
+        "extension": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "relativePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "$ref": "#/$defs/ArtifactRole"
+        },
+        "sizeBytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "artifact",
+        "role",
+        "mediaType",
+        "contentHash",
+        "sizeBytes"
+      ],
+      "type": "object"
+    },
+    "NormalizedFormat": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentFileProfile"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "mediaType",
+        "extension",
+        "agent"
+      ],
+      "type": "object"
+    },
+    "NormalizedSource": {
+      "properties": {
+        "agent": {
+          "$ref": "#/$defs/AgentFileProfile"
+        },
+        "companions": {
+          "items": {
+            "$ref": "#/$defs/NormalizedArtifact"
+          },
+          "type": "array"
+        },
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/NormalizationDiagnostic"
+          },
+          "type": "array"
+        },
+        "extension": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness"
+        },
+        "locatorMap": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedArtifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "normalizer": {
+          "$ref": "#/$defs/ProducerRef"
+        },
+        "normalizerId": {
+          "type": "string"
+        },
+        "primary": {
+          "$ref": "#/$defs/NormalizedArtifact"
+        },
+        "projectionPolicy": {
+          "$ref": "#/$defs/ProjectionPolicy"
+        },
+        "revisionRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "sourceSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        }
+      },
+      "required": [
+        "revisionRef",
+        "sourceSnapshot",
+        "normalizerId",
+        "mediaType",
+        "format",
+        "extension",
+        "agent",
+        "primary",
+        "companions",
+        "projectionPolicy",
+        "normalizer",
+        "diagnostics",
+        "freshness"
+      ],
+      "type": "object"
+    },
+    "NormalizerCapabilities": {
+      "properties": {
+        "companions": {
+          "type": "boolean"
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "locatorKinds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "randomAccess": {
+          "type": "boolean"
+        },
+        "streaming": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deterministic",
+        "streaming",
+        "randomAccess",
+        "companions",
+        "locatorKinds"
+      ],
+      "type": "object"
+    },
+    "NormalizerDescriptor": {
+      "properties": {
+        "capabilities": {
+          "$ref": "#/$defs/NormalizerCapabilities"
+        },
+        "defaultPriority": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "implementationVersion": {
+          "type": "string"
+        },
+        "inputs": {
+          "items": {
+            "$ref": "#/$defs/InputMatcher"
+          },
+          "type": "array"
+        },
+        "output": {
+          "$ref": "#/$defs/NormalizedFormat"
+        },
+        "protocolVersion": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocolVersion",
+        "id",
+        "displayName",
+        "implementationVersion",
+        "inputs",
+        "output",
+        "capabilities",
+        "defaultPriority"
+      ],
+      "type": "object"
+    },
+    "OriginalLocator": {
+      "oneOf": [
+        {
+          "properties": {
+            "end_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "start_line": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "type": {
+              "const": "file",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "end": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "byte_range",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri",
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "page": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": {
+              "const": "document_page",
+              "type": "string"
+            },
+            "uri": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "uri",
+            "page"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ProducerRef": {
+      "description": "Versioned component that produced a derived record.",
+      "properties": {
+        "configHash": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "configHash"
+      ],
+      "type": "object"
+    },
+    "ProjectionPolicy": {
+      "enum": [
+        "pointer",
+        "copy",
+        "normalize"
+      ],
+      "type": "string"
+    },
+    "RetrievalProfile": {
+      "enum": [
+        "prose",
+        "rich_document",
+        "source_code",
+        "tabular",
+        "structured_data"
+      ],
+      "type": "string"
+    },
+    "RevisionRef": {
+      "description": "Immutable revision of a stable logical entity.",
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entity",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "SourceRecord": {
+      "properties": {
+        "accessStatus": {
+          "$ref": "#/$defs/AccessStatus"
+        },
+        "currentSnapshot": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "entityRef": {
+          "$ref": "#/$defs/EntityRef"
+        },
+        "format": {
+          "type": "string"
+        },
+        "mediaType": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entityRef",
+        "format",
+        "uri",
+        "title",
+        "mediaType",
+        "currentSnapshot",
+        "accessStatus"
+      ],
+      "type": "object"
+    },
+    "SourceSnapshot": {
+      "properties": {
+        "contentHash": {
+          "type": "string"
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness"
+        },
+        "modifiedAt": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "revisionRef": {
+          "$ref": "#/$defs/RevisionRef"
+        },
+        "sizeBytes": {
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "revisionRef",
+        "contentHash",
+        "sizeBytes",
+        "freshness"
+      ],
+      "type": "object"
+    },
+    "ToolSupport": {
+      "properties": {
+        "grep": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        },
+        "lineOriented": {
+          "type": "boolean"
+        },
+        "read": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        },
+        "sed": {
+          "$ref": "#/$defs/ToolSupportLevel"
+        }
+      },
+      "required": [
+        "read",
+        "grep",
+        "sed",
+        "lineOriented"
+      ],
+      "type": "object"
+    },
+    "ToolSupportLevel": {
+      "enum": [
+        "first_class",
+        "compatible",
+        "not_recommended"
+      ],
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/NormalizationConfig"
+    },
+    "descriptor": {
+      "$ref": "#/$defs/NormalizerDescriptor"
+    },
+    "normalized": {
+      "$ref": "#/$defs/NormalizedSource"
+    },
+    "record": {
+      "$ref": "#/$defs/SourceRecord"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/SourceSnapshot"
+    }
+  },
+  "required": [
+    "record",
+    "snapshot",
+    "normalized",
+    "descriptor",
+    "config"
+  ],
+  "title": "SourceSchema",
+  "type": "object"
+}

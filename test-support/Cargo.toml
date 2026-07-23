@@ -1,0 +1,35 @@
+[package]
+name = "context-test-support"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+doctest = false
+test = false
+
+[[bin]]
+name = "write-schemas"
+path = "src/bin/write_schemas.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+agent-source-connector = { workspace = true }
+context-admin-backend = { workspace = true }
+context-compiler = { workspace = true }
+context-config = { workspace = true }
+context-evidence = { workspace = true }
+context-fact = { workspace = true }
+context-protocol = { workspace = true }
+context-scope = { workspace = true }
+context-semantic = { workspace = true }
+context-source = { workspace = true }
+context-structure = { workspace = true }
+context-query = { workspace = true }
+context-workspace = { workspace = true }
+schemars = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }

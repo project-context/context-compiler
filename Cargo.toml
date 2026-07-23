@@ -1,0 +1,117 @@
+[workspace]
+members = [
+    "protocol",
+    "source",
+    "structure",
+    "structure-parsers/markdown",
+    "structure-parsers/tree-sitter-typescript",
+    "structure-parsers/test-support",
+    "evidence",
+    "fact",
+    "scope",
+    "semantic",
+    "workspace",
+    "config",
+    "admin-backend",
+    "store-sqlite",
+    "processor-markdown",
+    "processor-typescript",
+    "compiler",
+    "query",
+    "cli",
+    "mcp-server",
+    "test-support",
+]
+exclude = ["normalizers", "connectors"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+context-protocol = { path = "protocol" }
+context-source = { path = "source" }
+agent-file-normalizer = { path = "normalizers/core" }
+agent-file-normalizer-markdown = { path = "normalizers/markdown" }
+agent-file-normalizer-typescript = { path = "normalizers/typescript" }
+agent-file-normalizer-pdf-markdown = { path = "normalizers/pdf-markdown" }
+agent-file-normalizer-pdf-html = { path = "normalizers/pdf-html" }
+agent-file-normalizer-html = { path = "normalizers/html" }
+agent-file-normalizer-text-markdown = { path = "normalizers/text-markdown" }
+context-structure = { path = "structure" }
+context-structure-parser-markdown = { path = "structure-parsers/markdown" }
+context-structure-parser-tree-sitter-typescript = { path = "structure-parsers/tree-sitter-typescript" }
+context-structure-parser-test-support = { path = "structure-parsers/test-support" }
+context-evidence = { path = "evidence" }
+context-fact = { path = "fact" }
+context-scope = { path = "scope" }
+context-semantic = { path = "semantic" }
+context-workspace = { path = "workspace" }
+context-config = { path = "config" }
+context-admin-backend = { path = "admin-backend" }
+agent-source-connector = { path = "connectors/core" }
+agent-source-connector-local = { path = "connectors/local" }
+agent-source-connector-git = { path = "connectors/git" }
+context-store-sqlite = { path = "store-sqlite" }
+context-processor-markdown = { path = "processor-markdown" }
+context-processor-typescript = { path = "processor-typescript" }
+context-compiler = { path = "compiler" }
+context-query = { path = "query" }
+context-test-support = { path = "test-support" }
+
+clap = { version = "4", features = ["derive"] }
+bytes = "1"
+insta = { version = "1.46.3", features = ["json"] }
+pretty_assertions = "1.4.1"
+pulldown-cmark = "0.10"
+rmcp = { version = "1.8.0", default-features = false }
+schemars = "1.2.1"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.8.6", default-features = false, features = [
+    "json",
+    "macros",
+    "migrate",
+    "runtime-tokio",
+    "sqlite",
+    "uuid",
+] }
+tempfile = "3.23.0"
+thiserror = "2.0.17"
+tokio = { version = "1", features = ["fs", "io-std", "io-util", "macros", "rt-multi-thread", "signal", "sync"] }
+tree-sitter = "0.25.10"
+tree-sitter-typescript = "0.23"
+uuid = { version = "1", features = ["serde", "v7"] }
+walkdir = "2.5.0"
+globset = "0.4"
+axum = "0.8"
+tokio-stream = { version = "0.1", features = ["sync"] }
+tower-http = { version = "0.6", features = ["trace"] }
+tower = { version = "0.5", features = ["util"] }
+utoipa = { version = "5", features = ["uuid"] }
+utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
+rust-embed = "8"
+mime_guess = "2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"
+unwrap_used = "deny"
+expect_used = "deny"
+uninlined_format_args = "deny"
+redundant_clone = "deny"
+redundant_closure_for_method_calls = "deny"
+
+[profile.dev]
+debug = "limited"
+
+[profile.release]
+lto = "thin"
+debug = "line-tables-only"

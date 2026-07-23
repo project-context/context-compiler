@@ -1,0 +1,252 @@
+{
+  "$defs": {
+    "ContextFilters": {
+      "properties": {
+        "factKinds": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FactKind"
+          },
+          "type": "array"
+        },
+        "freshness": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Freshness"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "format": "uint",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "scopeRefs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ScopeRef"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ContextRequest": {
+      "oneOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "manifest",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "filters": {
+              "$ref": "#/$defs/ContextFilters",
+              "default": {
+                "factKinds": [],
+                "freshness": null,
+                "limit": null,
+                "scopeRefs": []
+              }
+            },
+            "terms": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "explore",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "terms"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "filters": {
+              "$ref": "#/$defs/ContextFilters",
+              "default": {
+                "factKinds": [],
+                "freshness": null,
+                "limit": null,
+                "scopeRefs": []
+              }
+            },
+            "target": {
+              "$ref": "#/$defs/EntityRef"
+            },
+            "terms": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "expand",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "target"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ContextResult": {
+      "properties": {
+        "diagnostics": {
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          },
+          "type": "array"
+        },
+        "freshness": {
+          "$ref": "#/$defs/Freshness"
+        },
+        "markdown": {
+          "type": "string"
+        },
+        "viewId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "viewId",
+        "markdown",
+        "freshness",
+        "diagnostics"
+      ],
+      "type": "object"
+    },
+    "Diagnostic": {
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/DiagnosticLevel"
+        },
+        "message": {
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "level",
+        "message"
+      ],
+      "type": "object"
+    },
+    "DiagnosticLevel": {
+      "enum": [
+        "info",
+        "warning",
+        "error"
+      ],
+      "type": "string"
+    },
+    "EntityRef": {
+      "description": "Stable logical identity that survives rebuilds when a processor can match the same object.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/Layer"
+        }
+      },
+      "required": [
+        "layer",
+        "id"
+      ],
+      "type": "object"
+    },
+    "FactKind": {
+      "enum": [
+        "business_rule",
+        "document_statement",
+        "code_symbol",
+        "code_condition",
+        "api_operation",
+        "test_case"
+      ],
+      "type": "string"
+    },
+    "Freshness": {
+      "description": "Whether a derived record still matches its dependencies.",
+      "enum": [
+        "current",
+        "stale",
+        "invalid"
+      ],
+      "type": "string"
+    },
+    "Layer": {
+      "description": "Logical layer that owns an entity.",
+      "enum": [
+        "source",
+        "structure",
+        "evidence",
+        "fact"
+      ],
+      "type": "string"
+    },
+    "ScopeRef": {
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "request": {
+      "$ref": "#/$defs/ContextRequest"
+    },
+    "result": {
+      "$ref": "#/$defs/ContextResult"
+    }
+  },
+  "required": [
+    "request",
+    "result"
+  ],
+  "title": "QuerySchema",
+  "type": "object"
+}

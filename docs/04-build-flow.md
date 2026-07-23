@@ -8,7 +8,8 @@
 
 ```txt
 资料登记
-  -> Source 标准化
+  -> MIME / 扩展名 shortlist + probe 选择 portable Normalizer
+  -> A→B Source 标准化
   -> 结构解析
   -> 证据定位
   -> 事实抽取
@@ -77,7 +78,20 @@ OpenAPI / JSON / YAML:
   原样保留 + 可读摘要。
 ```
 
-结构层从 `NormalizedSource` 或原始源码读取，但所有结果必须能回到 SourceSnapshot。
+标准化路由与实现分离：
+
+```txt
+context.config.json
+  -> 显式覆盖 / MIME / extension 形成候选
+  -> probe confidence 与 priority 决定 normalizerId
+  -> InputSource → Normalizer → ArtifactSink → NormalizationReport
+  -> 输出带 ArtifactRef / FormatId / mediaType / extension 的 NormalizedSource
+  -> StructureParserRegistry 按标准化后缀选择解析器
+```
+
+扩展名配置不能凭空声明转换能力；配置引用的 `normalizerId` 与 `parserId` 必须由已安装 crate 注册。没有对应 Structure Parser 时，标准化结果仍可保存和投影，Structure 阶段跳过该文件并产生诊断。
+
+结构层由 Compiler 通过 Artifact Reader 分块读取 `NormalizedSource.primary`；Parser 不读取物理路径或 SQLite。Parser 输出确定性私有 Structure Artifact、units 与 relations，Compiler 原子提交 canonical 记录。Evidence Processor 再通过 Resolver 获取精确正文。Normalizer 可以对源码做恒等标准化。所有结果必须能回到 SourceSnapshot。
 
 ## 2. 结构解析
 
